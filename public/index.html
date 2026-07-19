@@ -343,6 +343,13 @@
       animation: spin 0.7s linear infinite;
       margin: 0 auto 12px;
     }
+    .spinner-inline {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border-width: 2px;
+      margin: 0 6px 0 0;
+      vertical-align: -1px;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* Detail view */
@@ -474,7 +481,9 @@
       <div class="card">
         <div class="step-head">
           <h1>Enter code</h1>
-          <p>Sent to <b><span id="code-phone"></span></b>.</p>
+          <p role="status" aria-live="polite">
+            <span id="code-status-icon" class="spinner spinner-inline hidden" aria-hidden="true"></span><span id="code-status-text">Sent to</span> <b><span id="code-phone"></span></b><span id="code-status-suffix">.</span>
+          </p>
         </div>
         <label for="code">4-digit code</label>
         <input id="code" type="text" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="one-time-code" />
@@ -579,22 +588,44 @@
       show(step);
     }
 
+    function setCodeStatus(state) {
+      const icon = $('code-status-icon');
+      const text = $('code-status-text');
+      const suffix = $('code-status-suffix');
+      if (state === 'sending') {
+        icon.classList.remove('hidden');
+        text.textContent = 'Texting a code to';
+        suffix.textContent = '…';
+      } else {
+        icon.classList.add('hidden');
+        text.textContent = 'Sent to';
+        suffix.textContent = '.';
+      }
+    }
+
     async function sendCode() {
       const phone = $('phone').value.trim();
       if (!phone) return setNotice('phone-error', 'Enter a phone number.');
       setNotice('phone-error', null);
-      $('send-code').disabled = true;
+      setNotice('code-error', null);
+
+      // Optimistically show the code step so the user sees something happen
+      // immediately — SMS delivery can be several seconds.
+      $('code-phone').textContent = phone;
+      setCodeStatus('sending');
+      showStep('step-code');
+      setTimeout(() => $('code').focus(), 50);
+
       try {
         const r = await api('/api/start-login', { method: 'POST', body: { phone } });
         session = r.session;
         sessionStorage.setItem('wots-session', JSON.stringify(session));
         $('code-phone').textContent = session.phone;
-        showStep('step-code');
-        setTimeout(() => $('code').focus(), 50);
+        setCodeStatus('sent');
       } catch (err) {
+        setCodeStatus('sent');
+        showStep('step-phone');
         setNotice('phone-error', friendlyError(err));
-      } finally {
-        $('send-code').disabled = false;
       }
     }
 
