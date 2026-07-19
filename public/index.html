@@ -279,6 +279,26 @@
     }
     ul.incidents li:last-child { border-bottom: 0; padding-bottom: 4px; }
     ul.incidents li:first-child { padding-top: 4px; }
+    ul.incidents li.clickable {
+      cursor: pointer;
+      margin: 0 -14px;
+      padding-left: 14px;
+      padding-right: 14px;
+      border-radius: 10px;
+      border-bottom-color: transparent;
+      position: relative;
+      transition: background 120ms ease;
+    }
+    ul.incidents li.clickable + li.clickable { border-top: 1px solid var(--border); }
+    ul.incidents li.clickable:hover { background: var(--surface-2); }
+    ul.incidents li.clickable:focus-visible { outline: none; box-shadow: var(--focus); }
+    .chev {
+      flex-shrink: 0;
+      color: var(--text-subtle);
+      align-self: center;
+      transition: transform 120ms ease, color 120ms ease;
+    }
+    ul.incidents li.clickable:hover .chev { color: var(--text-muted); transform: translateX(2px); }
     .inc-body { flex: 1; min-width: 0; }
     .inc-title {
       font-weight: 500;
@@ -324,6 +344,85 @@
       margin: 0 auto 12px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Detail view */
+    .detail-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 0;
+      padding: 8px 10px 8px 6px;
+      margin: 0 0 10px -6px;
+      color: var(--text-muted);
+      font: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+    .detail-back:hover { color: var(--text); background: var(--surface-2); }
+    .detail-back:focus-visible { outline: none; box-shadow: var(--focus); }
+
+    .detail-head { margin: 0 0 20px; }
+    .detail-head .chip-row { margin-bottom: 10px; }
+    .detail-head h1 {
+      margin: 0 0 6px;
+      font-size: clamp(20px, 4.5vw, 24px);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      overflow-wrap: anywhere;
+    }
+    .detail-head .detail-address {
+      color: var(--text-muted);
+      font-size: 15px;
+      overflow-wrap: anywhere;
+    }
+
+    .detail-section + .detail-section { margin-top: 22px; }
+    .detail-section h2 {
+      margin: 0 0 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .detail-section p { margin: 0; line-height: 1.55; overflow-wrap: anywhere; }
+    .detail-resolution {
+      background: var(--surface-2);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+
+    .detail-images {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
+    }
+    .detail-images a {
+      display: block;
+      aspect-ratio: 1 / 1;
+      background: var(--surface-2);
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .detail-images img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 200ms ease;
+    }
+    .detail-images a:hover img { transform: scale(1.03); }
+
+    .detail-meta {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 8px 16px;
+      font-size: 14px;
+    }
+    .detail-meta dt { color: var(--text-muted); }
+    .detail-meta dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
 
     .hidden { display: none !important; }
 
@@ -412,6 +511,23 @@
         <div id="issues-error" class="notice error hidden" role="alert"></div>
       </div>
     </section>
+
+    <section id="step-detail" class="step hidden">
+      <button id="detail-back" class="detail-back" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+        Issues
+      </button>
+      <div class="card">
+        <div id="detail-loading" class="empty">
+          <div class="spinner" aria-hidden="true"></div>
+          <div>Loading report…</div>
+        </div>
+        <div id="detail-body" class="hidden"></div>
+        <div id="detail-error" class="notice error hidden" role="alert"></div>
+      </div>
+    </section>
   </main>
 
   <script>
@@ -420,6 +536,7 @@
     const hide = (id) => $(id).classList.add('hidden');
 
     let session = null;
+    let cachedItems = null;
 
     function setNotice(elId, msg, kind) {
       const el = $(elId);
@@ -458,7 +575,7 @@
     }
 
     function showStep(step) {
-      ['step-phone', 'step-code', 'step-issues'].forEach(hide);
+      ['step-phone', 'step-code', 'step-issues', 'step-detail'].forEach(hide);
       show(step);
     }
 
@@ -535,10 +652,22 @@
           ? `${items.length} report${items.length === 1 ? '' : 's'}`
           : '';
         if (items.length === 0) { show('issues-empty'); return; }
+        cachedItems = items;
         const ul = $('issues');
         ul.innerHTML = '';
         for (const it of items) {
           const li = document.createElement('li');
+          const clickable = !!it.id;
+          if (clickable) {
+            li.className = 'clickable';
+            li.tabIndex = 0;
+            li.setAttribute('role', 'button');
+            li.setAttribute('aria-label', `View report ${it.primaryText || it.typeName || it.id}`);
+            li.addEventListener('click', () => openDetail(it));
+            li.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(it); }
+            });
+          }
           const body = document.createElement('div');
           body.className = 'inc-body';
           const title = document.createElement('div');
@@ -558,6 +687,22 @@
             chip.textContent = it.typeName;
             li.appendChild(chip);
           }
+          if (clickable) {
+            const chev = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            chev.setAttribute('class', 'chev');
+            chev.setAttribute('width', '18'); chev.setAttribute('height', '18');
+            chev.setAttribute('viewBox', '0 0 24 24');
+            chev.setAttribute('fill', 'none');
+            chev.setAttribute('stroke', 'currentColor');
+            chev.setAttribute('stroke-width', '2');
+            chev.setAttribute('stroke-linecap', 'round');
+            chev.setAttribute('stroke-linejoin', 'round');
+            chev.setAttribute('aria-hidden', 'true');
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', 'M9 6l6 6-6 6');
+            chev.appendChild(path);
+            li.appendChild(chev);
+          }
           ul.appendChild(li);
         }
         show('issues');
@@ -569,6 +714,150 @@
         }
         setNotice('issues-error', friendlyError(err));
       }
+    }
+
+    function openDetail(item) {
+      showStep('step-detail');
+      const body = $('detail-body');
+      body.innerHTML = '';
+      hide('detail-error');
+      // Paint what we already know from the list, immediately.
+      renderDetail(body, item, /*full=*/false);
+      show('detail-body');
+      hide('detail-loading');
+      loadDetail(item);
+    }
+
+    async function loadDetail(item) {
+      const token = localStorage.getItem('wots-token');
+      if (!token || !item || !item.id) return;
+      try {
+        const r = await api(`/api/incidents/${encodeURIComponent(item.id)}`, { token });
+        const full = r.incident || {};
+        const merged = Object.assign({}, item, full);
+        const body = $('detail-body');
+        body.innerHTML = '';
+        renderDetail(body, merged, /*full=*/true);
+      } catch (err) {
+        if (err && (err.error === 'INVALID_JWT' || err.error === 'missing token')) {
+          logout();
+          return;
+        }
+        setNotice('detail-error', friendlyError(err));
+      }
+    }
+
+    function renderDetail(root, it, isFull) {
+      const head = document.createElement('div');
+      head.className = 'detail-head';
+
+      if (it.typeName) {
+        const chipRow = document.createElement('div');
+        chipRow.className = 'chip-row';
+        const chip = document.createElement('span');
+        chip.className = 'inc-chip';
+        chip.textContent = it.typeName;
+        chipRow.appendChild(chip);
+        head.appendChild(chipRow);
+      }
+
+      const h1 = document.createElement('h1');
+      h1.textContent = it.primaryText || it.typeName || `Report ${it.id || ''}`;
+      head.appendChild(h1);
+
+      if (it.address) {
+        const addr = document.createElement('div');
+        addr.className = 'detail-address';
+        addr.textContent = it.address;
+        head.appendChild(addr);
+      }
+      root.appendChild(head);
+
+      const imageUrls = it.userContent && Array.isArray(it.userContent.imageUrls)
+        ? it.userContent.imageUrls : [];
+      if (imageUrls.length) {
+        const sec = section('Photos');
+        const grid = document.createElement('div');
+        grid.className = 'detail-images';
+        for (const url of imageUrls) {
+          const a = document.createElement('a');
+          a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+          const img = document.createElement('img');
+          img.src = url; img.alt = ''; img.loading = 'lazy';
+          a.appendChild(img);
+          grid.appendChild(a);
+        }
+        sec.appendChild(grid);
+        root.appendChild(sec);
+      }
+
+      const noteText = (it.userContent && typeof it.userContent.text === 'string' && it.userContent.text.trim())
+        || (typeof it.description === 'string' && it.description.trim())
+        || '';
+      if (noteText) {
+        const sec = section('Notes');
+        const p = document.createElement('p');
+        p.textContent = noteText;
+        sec.appendChild(p);
+        root.appendChild(sec);
+      }
+
+      const resolution = (typeof it.publicResolution === 'string' && it.publicResolution.trim())
+        || (typeof it.resolution === 'string' && it.resolution.trim())
+        || '';
+      if (resolution) {
+        const sec = section('Resolution');
+        const box = document.createElement('div');
+        box.className = 'detail-resolution';
+        const p = document.createElement('p');
+        p.textContent = resolution;
+        box.appendChild(p);
+        sec.appendChild(box);
+        root.appendChild(sec);
+      }
+
+      if (isFull) {
+        const meta = buildMeta(it);
+        if (meta.length) {
+          const sec = section('Details');
+          const dl = document.createElement('dl');
+          dl.className = 'detail-meta';
+          for (const [k, v] of meta) {
+            const dt = document.createElement('dt'); dt.textContent = k;
+            const dd = document.createElement('dd'); dd.textContent = v;
+            dl.appendChild(dt); dl.appendChild(dd);
+          }
+          sec.appendChild(dl);
+          root.appendChild(sec);
+        }
+      }
+    }
+
+    function section(title) {
+      const sec = document.createElement('div');
+      sec.className = 'detail-section';
+      const h2 = document.createElement('h2');
+      h2.textContent = title;
+      sec.appendChild(h2);
+      return sec;
+    }
+
+    function buildMeta(it) {
+      const rows = [];
+      const push = (k, v) => { if (v !== undefined && v !== null && v !== '') rows.push([k, String(v)]); };
+      const fmt = (ts) => {
+        const n = typeof ts === 'number' ? ts : Number(ts);
+        if (!Number.isFinite(n) || n <= 0) return '';
+        const ms = n < 1e12 ? n * 1000 : n;
+        try { return new Date(ms).toLocaleString(); } catch (_) { return ''; }
+      };
+      push('Reported', fmt(it.createdAt || it.reportedAt || it.timestamp));
+      push('Updated', fmt(it.updatedAt || it.resolvedAt));
+      push('Status', it.status || it.state);
+      push('Officer', (it.officer && (it.officer.name || it.officer.badge)) || it.officerName);
+      push('Citation', it.citationDescription || (it.citation && it.citation.description));
+      push('ID', it.id);
+      return rows;
     }
 
     function logout() {
@@ -586,6 +875,10 @@
     $('verify').addEventListener('click', verify);
     $('resend').addEventListener('click', resend);
     $('back').addEventListener('click', logout);
+    $('detail-back').addEventListener('click', () => {
+      showStep('step-issues');
+      // list is still rendered from the last loadIssues; no refetch needed
+    });
     $('phone').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCode(); });
     $('code').addEventListener('keydown', (e) => { if (e.key === 'Enter') verify(); });
     $('who').addEventListener('click', () => {

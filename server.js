@@ -62,6 +62,15 @@ async function handle(req, res) {
       return send(res, 200, { items });
     }
 
+    if (req.method === 'GET' && req.url.startsWith('/api/incidents/')) {
+      const auth = req.headers.authorization || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+      if (!token) return send(res, 401, { error: 'missing token' });
+      const id = decodeURIComponent(req.url.slice('/api/incidents/'.length));
+      const incident = await WOTS.detail(token, id);
+      return send(res, 200, { incident });
+    }
+
     send(res, 404, { error: 'not found' });
   } catch (err) {
     const clientErrors = new Set(['INVALID_PHONE', 'INVALID_CODE_FORMAT', 'INVALID_JWT']);
