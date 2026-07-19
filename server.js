@@ -15,6 +15,7 @@ const PORT = process.env.PORT || 3000;
 const INDEX_HTML = fs.readFileSync(path.join(__dirname, 'public', 'index.html'));
 const STATS_HTML = fs.readFileSync(path.join(__dirname, 'public', 'stats.html'));
 const ABOUT_HTML = fs.readFileSync(path.join(__dirname, 'public', 'about.html'));
+const TERMS_HTML = fs.readFileSync(path.join(__dirname, 'public', 'terms.html'));
 
 function send(res, status, body, headers = {}) {
   res.writeHead(status, { 'content-type': 'application/json', ...headers });
@@ -65,6 +66,12 @@ async function handle(req, res) {
   if (req.method === 'GET' && req.url === '/about') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(ABOUT_HTML);
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/terms') {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(TERMS_HTML);
     return;
   }
 
