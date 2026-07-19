@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#fafaf9" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#0c0c0d" media="(prefers-color-scheme: dark)" />
-  <title>wots</title>
+  <title>WOTS++ | An improved WOTS interface</title>
   <style>
     :root {
       color-scheme: light dark;
@@ -353,52 +353,52 @@
       list-style: none;
       padding: 0;
       margin: 0;
-      display: flex;
-      flex-direction: column;
     }
-    ul.incidents li {
+
+    /* Mobile: same visual as before, done with grid-areas so the same
+       cell markup can flip to a table on desktop. */
+    ul.incidents li.row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto 18px;
+      grid-template-areas:
+        "type       status  chev"
+        "addr       status  chev"
+        "resolution status  chev";
+      column-gap: 12px;
+      row-gap: 4px;
       padding: 16px 0;
       border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: flex-start;
-      gap: 14px;
     }
-    ul.incidents li:last-child { border-bottom: 0; padding-bottom: 4px; }
-    ul.incidents li:first-child { padding-top: 4px; }
-    ul.incidents li.clickable {
+    ul.incidents li.row:last-child { border-bottom: 0; padding-bottom: 4px; }
+    ul.incidents li.row:first-child { padding-top: 4px; }
+    ul.incidents li.row.clickable {
       cursor: pointer;
       margin: 0 -14px;
       padding-left: 14px;
       padding-right: 14px;
       border-radius: 10px;
       border-bottom-color: transparent;
-      position: relative;
       transition: background 120ms ease;
     }
-    ul.incidents li.clickable + li.clickable { border-top: 1px solid var(--border); }
-    ul.incidents li.clickable:hover { background: var(--surface-2); }
-    ul.incidents li.clickable:focus-visible { outline: none; box-shadow: var(--focus); }
+    ul.incidents li.row.clickable + li.row.clickable { border-top: 1px solid var(--border); }
+    ul.incidents li.row.clickable:hover { background: var(--surface-2); }
+    ul.incidents li.row.clickable:focus-visible { outline: none; box-shadow: var(--focus); }
+
+    .col-type       { grid-area: type; font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
+    .col-addr       { grid-area: addr; color: var(--text-muted); font-size: 14px; overflow-wrap: anywhere; }
+    .col-resolution { grid-area: resolution; color: var(--text-muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .col-resolution:empty { display: none; }
+    .col-status     { grid-area: status; align-self: center; display: flex; justify-content: flex-end; }
     .chev {
-      flex-shrink: 0;
-      color: var(--text-subtle);
+      grid-area: chev;
       align-self: center;
+      color: var(--text-subtle);
       transition: transform 120ms ease, color 120ms ease;
     }
-    ul.incidents li.clickable:hover .chev { color: var(--text-muted); transform: translateX(2px); }
-    .inc-body { flex: 1; min-width: 0; }
-    .inc-title {
-      font-weight: 500;
-      color: var(--text);
-      overflow-wrap: anywhere;
-    }
-    .inc-address {
-      color: var(--text-muted);
-      font-size: 14px;
-      margin-top: 4px;
-      overflow-wrap: anywhere;
-    }
+    ul.incidents li.row.clickable:hover .chev { color: var(--text-muted); transform: translateX(2px); }
+    .col-reported, .col-resolved, .col-officer { display: none; }
+
     .inc-chip {
-      flex-shrink: 0;
       display: inline-flex;
       align-items: center;
       padding: 4px 10px;
@@ -412,21 +412,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .inc-resolution {
-      color: var(--text-muted);
-      font-size: 13px;
-      margin-top: 6px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .inc-side {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 6px;
-      flex-shrink: 0;
-    }
+
     .status {
       display: inline-flex;
       align-items: center;
@@ -447,6 +433,79 @@
       .status.open    { background: rgba(96, 165, 250, 0.14); color: #93c5fd; }
       .status.working { background: rgba(251, 191, 36, 0.14); color: #fbbf24; }
       .status.canceled{ background: rgba(168, 162, 158, 0.14); color: #a8a29e; }
+    }
+
+    /* Table header — hidden on mobile, visible on desktop. */
+    .list-header { display: none; }
+
+    /* Desktop: widen the issues step and flip rows to a real table.
+       Only issues; other steps stay narrow. */
+    @media (min-width: 900px) {
+      main:has(#step-issues:not(.hidden)) { max-width: 1200px; }
+
+      .list-header {
+        display: grid;
+        grid-template-columns:
+          minmax(140px, 1.4fr)   /* type */
+          minmax(160px, 1.6fr)   /* address */
+          130px                  /* status */
+          110px                  /* reported */
+          110px                  /* resolved */
+          minmax(120px, 1.2fr)   /* officer */
+          minmax(140px, 2fr)     /* resolution */
+          18px;                  /* chev spacer */
+        column-gap: 14px;
+        padding: 12px 14px;
+        margin: 0 -14px 4px;
+        border-bottom: 1px solid var(--border);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+
+      ul.incidents li.row {
+        grid-template-columns:
+          minmax(140px, 1.4fr)
+          minmax(160px, 1.6fr)
+          130px
+          110px
+          110px
+          minmax(120px, 1.2fr)
+          minmax(140px, 2fr)
+          18px;
+        grid-template-areas: none;
+        column-gap: 14px;
+        row-gap: 0;
+        padding: 12px 14px;
+        align-items: center;
+      }
+      ul.incidents li.row.clickable {
+        margin: 0 -14px;
+        border-radius: 8px;
+      }
+      .col-type, .col-addr, .col-status, .col-reported, .col-resolved, .col-officer, .col-resolution {
+        grid-area: auto;
+        min-width: 0;
+      }
+      .col-type       { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .col-addr       { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .col-status     { display: block; text-align: left; align-self: center; }
+      .col-resolution { font-size: 13px; }
+      .col-reported, .col-resolved {
+        display: block;
+        font-size: 13px;
+        color: var(--text-muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .col-officer {
+        display: block;
+        font-size: 13px;
+        color: var(--text-muted);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .col-empty { color: var(--text-subtle); }
     }
 
     .empty {
@@ -684,7 +743,7 @@
   <header>
     <div class="brand">
       <span class="brand-mark" aria-hidden="true"></span>
-      <span>wots</span>
+      <span>WOTS++</span>
     </div>
     <div style="display:flex; align-items:center; gap:10px;">
       <div id="who" class="who" aria-live="polite"></div>
@@ -769,6 +828,16 @@
         <div id="issues-loading" class="empty">
           <div class="spinner" aria-hidden="true"></div>
           <div>Loading your issues…</div>
+        </div>
+        <div id="list-header" class="list-header hidden" aria-hidden="true">
+          <div>Type</div>
+          <div>Address</div>
+          <div>Status</div>
+          <div>Reported</div>
+          <div>Resolved</div>
+          <div>Officer</div>
+          <div>Resolution</div>
+          <div></div>
         </div>
         <ul id="issues" class="incidents hidden"></ul>
         <div id="no-matches" class="no-matches hidden">No reports match those filters.</div>
@@ -1030,7 +1099,7 @@
     async function loadIssues(token) {
       showStep('step-issues');
       show('issues-loading');
-      hide('issues'); hide('issues-empty'); hide('issues-error'); hide('no-matches'); hide('filters');
+      hide('issues'); hide('issues-empty'); hide('issues-error'); hide('no-matches'); hide('filters'); hide('list-header');
       $('issues-count').textContent = '';
       itemNodes.clear();
       try {
@@ -1045,6 +1114,7 @@
         renderIncidentList(items);
         buildFilterOptions(items);
         show('filters');
+        show('list-header');
         show('issues');
         applyFilters();
         // Background fetch details to reveal resolutions
@@ -1074,9 +1144,10 @@
       ul.innerHTML = '';
       for (const it of items) {
         const li = document.createElement('li');
+        li.className = 'row';
         const clickable = !!it.id;
         if (clickable) {
-          li.className = 'clickable';
+          li.classList.add('clickable');
           li.tabIndex = 0;
           li.setAttribute('role', 'button');
           li.setAttribute('aria-label', `View report ${it.typeName || it.primaryText || it.id}`);
@@ -1085,69 +1156,99 @@
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(it); }
           });
         }
-        const body = document.createElement('div');
-        body.className = 'inc-body';
-        const title = document.createElement('div');
-        title.className = 'inc-title';
-        title.textContent = it.typeName || it.primaryText || `Report ${it.id || ''}`;
-        body.appendChild(title);
-        if (it.address) {
-          const addr = document.createElement('div');
-          addr.className = 'inc-address';
-          addr.textContent = it.address;
-          body.appendChild(addr);
-        }
-        li.appendChild(body);
 
-        const side = document.createElement('div');
-        side.className = 'inc-side';
+        const cType = mkCell('col-type', it.typeName || `Report ${it.id || ''}`);
+        const cAddr = mkCell('col-addr', it.address || '');
+        const cStatus = document.createElement('div');
+        cStatus.className = 'col-status';
         if (it.primaryText) {
           const s = document.createElement('span');
           s.className = 'status ' + statusClass(it.primaryText);
           s.textContent = it.primaryText;
-          side.appendChild(s);
+          cStatus.appendChild(s);
         }
-        li.appendChild(side);
+        const cReported   = mkCell('col-reported',   '');
+        const cResolved   = mkCell('col-resolved',   '');
+        const cOfficer    = mkCell('col-officer',    '');
+        const cResolution = mkCell('col-resolution', '');
 
-        if (clickable) {
-          const chev = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-          chev.setAttribute('class', 'chev');
-          chev.setAttribute('width', '18'); chev.setAttribute('height', '18');
-          chev.setAttribute('viewBox', '0 0 24 24');
-          chev.setAttribute('fill', 'none');
-          chev.setAttribute('stroke', 'currentColor');
-          chev.setAttribute('stroke-width', '2');
-          chev.setAttribute('stroke-linecap', 'round');
-          chev.setAttribute('stroke-linejoin', 'round');
-          chev.setAttribute('aria-hidden', 'true');
-          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-          path.setAttribute('d', 'M9 6l6 6-6 6');
-          chev.appendChild(path);
-          li.appendChild(chev);
-        }
-        if (it.id) itemNodes.set(it.id, { li, body });
-        // If we already have detail cached, paint the resolution line
-        if (it.id && detailsCache.has(it.id)) {
-          paintResolutionOnItem(it.id, detailsCache.get(it.id));
+        li.appendChild(cType);
+        li.appendChild(cAddr);
+        li.appendChild(cStatus);
+        li.appendChild(cReported);
+        li.appendChild(cResolved);
+        li.appendChild(cOfficer);
+        li.appendChild(cResolution);
+
+        if (clickable) li.appendChild(mkChev());
+
+        if (it.id) {
+          itemNodes.set(it.id, {
+            li,
+            cells: { reported: cReported, resolved: cResolved, officer: cOfficer, resolution: cResolution },
+          });
+          if (detailsCache.has(it.id)) paintDetailOnItem(it.id, detailsCache.get(it.id));
         }
         ul.appendChild(li);
       }
     }
 
-    function paintResolutionOnItem(id, full) {
+    function mkCell(cls, text) {
+      const d = document.createElement('div');
+      d.className = cls;
+      if (text) d.textContent = text;
+      return d;
+    }
+
+    function mkChev() {
+      const chev = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      chev.setAttribute('class', 'chev');
+      chev.setAttribute('width', '18'); chev.setAttribute('height', '18');
+      chev.setAttribute('viewBox', '0 0 24 24');
+      chev.setAttribute('fill', 'none');
+      chev.setAttribute('stroke', 'currentColor');
+      chev.setAttribute('stroke-width', '2');
+      chev.setAttribute('stroke-linecap', 'round');
+      chev.setAttribute('stroke-linejoin', 'round');
+      chev.setAttribute('aria-hidden', 'true');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', 'M9 6l6 6-6 6');
+      chev.appendChild(path);
+      return chev;
+    }
+
+    function fmtDay(ts) {
+      const n = typeof ts === 'number' ? ts : Number(ts);
+      if (!Number.isFinite(n) || n <= 0) return '';
+      const ms = n < 1e12 ? n * 1000 : n;
+      try {
+        return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
+      } catch (_) { return ''; }
+    }
+
+    function paintDetailOnItem(id, full) {
       const node = itemNodes.get(id);
       if (!node || !full) return;
+      const c = node.cells;
       const resText = (typeof full.publicResolution === 'string' && full.publicResolution.trim()) || '';
-      if (!resText) return;
-      let line = node.body.querySelector('.inc-resolution');
-      if (!line) {
-        line = document.createElement('div');
-        line.className = 'inc-resolution';
-        node.body.appendChild(line);
+      if (resText) {
+        c.resolution.textContent = resText;
+        node.li.dataset.resolution = resText;
       }
-      line.textContent = resText;
-      // Stash resolution on the li for filtering
-      node.li.dataset.resolution = resText;
+      const rep = fmtDay(full.receivedAt);
+      if (rep) c.reported.textContent = rep;
+      const resTs = full.resolvedAt || full.canceledAt;
+      if (resTs) {
+        c.resolved.textContent = fmtDay(resTs);
+      } else {
+        // Detail loaded but no resolution date — show em-dash so column doesn't look "still loading".
+        if (!c.resolved.textContent) {
+          c.resolved.textContent = '—';
+          c.resolved.classList.add('col-empty');
+        }
+      }
+      const officer = (full.props && full.props.OFFICER_LABEL) || '';
+      if (officer) c.officer.textContent = officer;
     }
 
     function buildFilterOptions(items) {
@@ -1202,6 +1303,7 @@
         : `${visible} of ${total}`;
       $('no-matches').classList.toggle('hidden', visible > 0);
       $('issues').classList.toggle('hidden', visible === 0);
+      $('list-header').classList.toggle('hidden', visible === 0);
     }
 
     async function fetchAllDetails(items, token) {
@@ -1221,7 +1323,7 @@
           try {
             const r = await api(`/api/incidents/${encodeURIComponent(it.id)}`, { token });
             detailsCache.set(it.id, r.incident || {});
-            paintResolutionOnItem(it.id, r.incident);
+            paintDetailOnItem(it.id, r.incident);
           } catch (_) { /* silently skip */ }
           done++;
           barFill.style.width = `${Math.round((done / total) * 100)}%`;
