@@ -42,16 +42,32 @@
     }
     header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 24px;
+      gap: 12px;
+      padding: 18px 24px;
       border-bottom: 1px solid var(--border);
+      background: var(--bg);
     }
-    .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; }
+    .brand {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-weight: 600; letter-spacing: -0.01em;
+      color: var(--text); text-decoration: none;
+    }
     .brand-mark {
       width: 22px; height: 22px; border-radius: 6px;
       background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #a855f7));
     }
-    header a { color: var(--muted); text-decoration: none; font-size: 14px; }
-    header a:hover { color: var(--text); }
+    .header-nav { display: flex; align-items: center; gap: 10px; }
+    .nav-icon {
+      width: 40px; height: 40px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      text-decoration: none;
+      transition: background 120ms ease;
+    }
+    .nav-icon:hover { background: var(--surface-2); }
 
     main { max-width: 1200px; margin: 0 auto; padding: clamp(24px, 5vw, 40px) 24px; }
     h1 {
@@ -130,15 +146,24 @@
 </head>
 <body>
   <header>
-    <a class="brand" href="/" style="color: inherit; text-decoration: none;">
+    <a class="brand" href="/">
       <span class="brand-mark" aria-hidden="true"></span>
       <span>WOTS++</span>
-      <span class="muted" style="font-weight: normal; margin-left: 6px;">· stats</span>
     </a>
-    <div style="display:flex; gap:16px; align-items:center;">
-      <a href="/about" class="muted" style="text-decoration:none;">About</a>
-      <a href="/">Back to app →</a>
-    </div>
+    <nav class="header-nav">
+      <a href="/" class="nav-icon" title="App" aria-label="App">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 12l9-9 9 9" /><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10" />
+        </svg>
+      </a>
+      <a href="/about" class="nav-icon" title="About" aria-label="About">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="16" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+      </a>
+    </nav>
   </header>
   <main id="content">
     <div class="loading">Loading stats…</div>
