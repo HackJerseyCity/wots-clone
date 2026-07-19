@@ -158,14 +158,15 @@
       <li>When the report was filed, assigned, and resolved</li>
     </ul>
 
-    <div class="callout warn">
-      <p><b>The one piece of personal data we should call out:</b> WOTS attaches your phone number to every incident report you file — it's how officers can follow up. Because we save the full report, the phone number is saved alongside it. It's never shown in the WOTS++ interface, never sent to anyone else, and never used for anything but reading back your own records.</p>
+    <div class="callout">
+      <p><b>About phone numbers:</b> WOTS attaches your phone number to every incident report you file — it's how officers can follow up. We deliberately <b>strip your phone number out of every cached report before saving it</b>, and out of every response we hand back to your browser. It's used to authenticate you at sign-in and to file new reports, and that's it. It never lands in the database.</p>
     </div>
 
     <h3>What we do <i>not</i> save on our server</h3>
     <ul>
       <li>Your sign-in token</li>
       <li>The 4-digit SMS code</li>
+      <li>The phone number attached to your incident reports (stripped before write)</li>
       <li>Any analytics, tracking pixels, cookies, or telemetry — no Google Analytics, no ad networks, nothing</li>
       <li>The photo files themselves — only the WOTS links to them</li>
     </ul>

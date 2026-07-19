@@ -75,13 +75,22 @@ function getMany(userId, ids) {
   return out;
 }
 
+// Fields we deliberately drop before persisting. userContent.phone and
+// userContent.avatarText (which mirrors the phone) are PII the app never
+// uses — see /about for the rationale. Applied via JSON.stringify replacer
+// so nested occurrences are caught regardless of depth.
+const SANITIZE_KEYS = new Set(['phone', 'avatarText']);
+function sanitizeReplacer(key, value) {
+  return SANITIZE_KEYS.has(key) ? undefined : value;
+}
+
 // Insert only when the incident is terminal (immutable). No-op otherwise.
 function put(id, userId, incident) {
   if (!id || !userId || !isTerminal(incident)) return false;
   _put.run(
     id,
     userId,
-    JSON.stringify(incident),
+    JSON.stringify(incident, sanitizeReplacer),
     incident.primaryText || null,
     incident.typeName || null,
     incident.address || null,
@@ -93,6 +102,37 @@ function put(id, userId, incident) {
   );
   return true;
 }
+
+// Returns a copy with the same PII fields stripped. Cheap deep-clone via
+// stringify+parse; incident payloads are small (a few KB).
+function sanitizeIncident(incident) {
+  if (!incident || typeof incident !== 'object') return incident;
+  return JSON.parse(JSON.stringify(incident, sanitizeReplacer));
+}
+
+// One-time backfill: strip PII from any rows that predate the sanitize
+// step. Idempotent — a second boot has nothing to touch and does no writes.
+(function backfillSanitize() {
+  const rows = db.prepare('SELECT id, user_id, data FROM incident_details').all();
+  const upd = db.prepare('UPDATE incident_details SET data = ? WHERE id = ? AND user_id = ?');
+  const tx = db.transaction((toWrite) => {
+    for (const w of toWrite) upd.run(w.data, w.id, w.user_id);
+  });
+  const dirty = [];
+  for (const r of rows) {
+    try {
+      const parsed = JSON.parse(r.data);
+      const uc = parsed && parsed.userContent;
+      if (uc && (uc.phone != null || uc.avatarText != null)) {
+        dirty.push({ id: r.id, user_id: r.user_id, data: JSON.stringify(parsed, sanitizeReplacer) });
+      }
+    } catch (_) { /* leave malformed rows alone */ }
+  }
+  if (dirty.length) {
+    tx(dirty);
+    console.log(`db: sanitized ${dirty.length} pre-existing rows`);
+  }
+})();
 
 function del(id, userId) {
   if (!id || !userId) return;
@@ -253,4 +293,4 @@ function stats() {
   };
 }
 
-module.exports = { get, getMany, put, del, isTerminal, stats, db, DB_PATH };
+module.exports = { get, getMany, put, del, isTerminal, sanitizeIncident, stats, db, DB_PATH };

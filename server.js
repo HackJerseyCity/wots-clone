@@ -111,7 +111,7 @@ async function handle(req, res) {
       }
       const incident = await WOTS.detail(token, id);
       if (userId) db.put(id, userId, incident);
-      return send(res, 200, { incident });
+      return send(res, 200, { incident: db.sanitizeIncident(incident) });
     }
 
     if (req.method === 'GET' && req.url === '/api/types') {
@@ -144,7 +144,7 @@ async function handle(req, res) {
       if (userId && incident && cancelInfo && cancelInfo.incidentId) {
         db.put(cancelInfo.incidentId, userId, incident);
       }
-      return send(res, 200, { incident });
+      return send(res, 200, { incident: db.sanitizeIncident(incident) });
     }
 
     send(res, 404, { error: 'not found' });
