@@ -83,8 +83,9 @@
     }
     .brand-mark {
       width: 22px; height: 22px;
-      border-radius: 6px;
-      background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #a855f7));
+      background: #dc2626; /* stop-sign red */
+      /* regular octagon (2/(2+√2) ≈ 0.293 corner cuts) */
+      clip-path: polygon(29.3% 0, 70.7% 0, 100% 29.3%, 100% 70.7%, 70.7% 100%, 29.3% 100%, 0 70.7%, 0 29.3%);
       display: inline-block;
     }
     .who {
@@ -559,6 +560,7 @@
         text-transform: uppercase;
         color: var(--text-muted);
       }
+      .list-header > * { text-align: left; justify-self: start; }
 
       ul.incidents li.row {
         grid-template-columns:
@@ -942,7 +944,7 @@
         <div id="filters" class="filters hidden">
           <input id="filter-search" type="search" placeholder="Search address, category, resolution…" autocomplete="off" />
           <select id="filter-status" aria-label="Filter by status">
-            <option value="">All statuses</option>
+            <option value="">Any status</option>
           </select>
           <select id="filter-category" aria-label="Filter by category">
             <option value="">All categories</option>
@@ -1288,6 +1290,20 @@
       }
     }
 
+    // Collapse the verbose primaryText WOTS sends (which can include dates
+    // like 'Issue Closed 11/12/2025') to a short canonical label used by the
+    // status filter, so the dropdown doesn't have one entry per date.
+    const STATUS_ORDER = ['Open', 'Working', 'Closed', 'Canceled'];
+    function normalizeStatus(text) {
+      const s = (text || '').toLowerCase();
+      if (!s) return '';
+      if (s.includes('cancel')) return 'Canceled';
+      if (s.includes('closed') || s.includes('resolved')) return 'Closed';
+      if (s.includes('assigned') || s.includes('working') || s.includes('progress')) return 'Working';
+      if (s.includes('open') || s.includes('received') || s.includes('reported')) return 'Open';
+      return text; // unknown → leave alone so it still shows up
+    }
+
     function statusClass(text) {
       const s = (text || '').toLowerCase();
       if (!s) return '';
@@ -1433,7 +1449,7 @@
       if (!Number.isFinite(n) || n <= 0) return '';
       const ms = n < 1e12 ? n * 1000 : n;
       try {
-        return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
+        return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
       } catch (_) { return ''; }
     }
 
@@ -1506,10 +1522,18 @@
       const statuses = new Set();
       const categories = new Set();
       for (const it of items) {
-        if (it.primaryText) statuses.add(it.primaryText);
+        if (it.primaryText) statuses.add(normalizeStatus(it.primaryText));
         if (it.typeName) categories.add(it.typeName);
       }
-      fillSelect($('filter-status'), 'All statuses', [...statuses].sort());
+      const orderedStatuses = [...statuses].sort((a, b) => {
+        const ia = STATUS_ORDER.indexOf(a);
+        const ib = STATUS_ORDER.indexOf(b);
+        if (ia === -1 && ib === -1) return a.localeCompare(b);
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+      });
+      fillSelect($('filter-status'), 'Any status', orderedStatuses);
       fillSelect($('filter-category'), 'All categories', [...categories].sort());
     }
 
@@ -1543,7 +1567,7 @@
           .filter(Boolean).join(' ').toLowerCase();
         let match = true;
         if (q && !hay.includes(q)) match = false;
-        if (match && status && it.primaryText !== status) match = false;
+        if (match && status && normalizeStatus(it.primaryText) !== status) match = false;
         if (match && category && it.typeName !== category) match = false;
         if (match && resolutionStatus === 'yes' && !rowResolution) match = false;
         if (match && resolutionStatus === 'no' && rowResolution) match = false;
