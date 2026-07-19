@@ -287,8 +287,10 @@
       margin-bottom: 8px;
     }
     @media (min-width: 480px) {
-      .filters { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr); }
-      .filters.has-resolution { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+      .filters {
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      }
+      .filters #filter-search { grid-column: 1 / -1; }
     }
     .filters input, .filters select {
       width: 100%;
@@ -815,11 +817,13 @@
           <select id="filter-category" aria-label="Filter by category">
             <option value="">All categories</option>
           </select>
-          <select id="filter-resolution" class="hidden" aria-label="Filter by resolution">
-            <option value="">Any resolution</option>
+          <select id="filter-resolution-status" class="hidden" aria-label="Filter by resolution status">
+            <option value="">Any resolution status</option>
             <option value="yes">With resolution</option>
             <option value="no">Without resolution</option>
           </select>
+          <input id="filter-resolution-text" type="search" placeholder="Resolution contains…" list="resolution-suggestions" autocomplete="off" class="hidden" aria-label="Search resolution text" />
+          <datalist id="resolution-suggestions"></datalist>
         </div>
         <div id="details-progress" class="details-progress hidden">
           <span id="details-progress-label">Loading resolutions…</span>
@@ -1281,19 +1285,22 @@
       const q = ($('filter-search').value || '').trim().toLowerCase();
       const status = $('filter-status').value;
       const category = $('filter-category').value;
-      const resolution = $('filter-resolution').value;
+      const resolutionStatus = $('filter-resolution-status').value;
+      const resText = ($('filter-resolution-text').value || '').trim().toLowerCase();
       let visible = 0;
       for (const it of cachedItems) {
         const node = itemNodes.get(it.id);
         if (!node) continue;
-        const resText = node.li.dataset.resolution || '';
-        const hay = [it.address, it.typeName, it.primaryText, resText].filter(Boolean).join(' ').toLowerCase();
+        const rowResolution = (node.li.dataset.resolution || '').toLowerCase();
+        const hay = [it.address, it.typeName, it.primaryText, rowResolution]
+          .filter(Boolean).join(' ').toLowerCase();
         let match = true;
         if (q && !hay.includes(q)) match = false;
         if (match && status && it.primaryText !== status) match = false;
         if (match && category && it.typeName !== category) match = false;
-        if (match && resolution === 'yes' && !resText) match = false;
-        if (match && resolution === 'no' && resText) match = false;
+        if (match && resolutionStatus === 'yes' && !rowResolution) match = false;
+        if (match && resolutionStatus === 'no' && rowResolution) match = false;
+        if (match && resText && !rowResolution.includes(resText)) match = false;
         node.li.classList.toggle('hidden', !match);
         if (match) visible++;
       }
@@ -1330,24 +1337,47 @@
           label.textContent = done < total
             ? `Loading resolutions… ${done}/${total}`
             : `Loaded ${total} resolutions`;
-          if (done === Math.ceil(total / 4)) enableResolutionFilter();
-          // Re-apply filters if the resolution filter is active or a search matches new text
-          if ($('filter-resolution').value || ($('filter-search').value || '').trim()) applyFilters();
+          if (done === Math.ceil(total / 4)) enableResolutionFilters();
+          rebuildResolutionSuggestions();
+          // Re-apply if any resolution-sensitive filter is active
+          if ($('filter-resolution-status').value
+              || $('filter-resolution-text').value
+              || ($('filter-search').value || '').trim()) {
+            applyFilters();
+          }
         }
       };
       const concurrency = 4;
       await Promise.all(Array.from({ length: concurrency }, worker));
-      enableResolutionFilter();
+      enableResolutionFilters();
+      rebuildResolutionSuggestions();
       applyFilters();
       setTimeout(() => hide('details-progress'), 1200);
       detailsInFlight = false;
     }
 
-    function enableResolutionFilter() {
-      const sel = $('filter-resolution');
-      if (!sel.classList.contains('hidden')) return;
-      sel.classList.remove('hidden');
-      $('filters').classList.add('has-resolution');
+    function enableResolutionFilters() {
+      $('filter-resolution-status').classList.remove('hidden');
+      $('filter-resolution-text').classList.remove('hidden');
+    }
+
+    function rebuildResolutionSuggestions() {
+      const dl = $('resolution-suggestions');
+      const seen = new Set();
+      for (const full of detailsCache.values()) {
+        const t = (full && typeof full.publicResolution === 'string')
+          ? full.publicResolution.trim() : '';
+        if (t) seen.add(t);
+      }
+      // Only rebuild when the set of unique resolutions changed length.
+      if (dl.dataset.count === String(seen.size)) return;
+      dl.dataset.count = String(seen.size);
+      dl.innerHTML = '';
+      for (const t of seen) {
+        const opt = document.createElement('option');
+        opt.value = t;
+        dl.appendChild(opt);
+      }
     }
 
     function openDetail(item) {
@@ -1786,7 +1816,7 @@
       $('s-photo-img').removeAttribute('src');
     });
     $('s-submit').addEventListener('click', submitReport);
-    ['filter-search', 'filter-status', 'filter-category', 'filter-resolution'].forEach((id) => {
+    ['filter-search', 'filter-status', 'filter-category', 'filter-resolution-status', 'filter-resolution-text'].forEach((id) => {
       const el = $(id);
       el.addEventListener('input', applyFilters);
       el.addEventListener('change', applyFilters);
