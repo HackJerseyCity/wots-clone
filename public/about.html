@@ -162,7 +162,8 @@
     </ul>
 
     <h2>What we can see</h2>
-    <p>Once you're signed in, we can see everything WOTS shows you about <b>your own</b> reports — the addresses, photos you attached, comments you wrote, and how the reports were resolved. WOTS doesn't share other people's reports with us, so we can't see them either.</p>
+    <p>Once you're signed in, we can see everything WOTS shows you about <b>your own</b> reports — the addresses, photos you attached, comments you wrote, and how the reports were resolved. WOTS scopes each request to whoever is signed in, so at any given moment our server is only fetching <i>your</i> data from WOTS.</p>
+    <p>Here's the fuller picture, though: because every WOTS++ user signs in through the same server, our own database ends up holding a closed-report copy for <b>every</b> WOTS++ user over time, not just you. That pooled data is what the public <a href="/stats">stats page</a> is built on (anonymized), and it's also what the site operator has direct read access to on the server. If you'd rather not have your reports sitting in someone else's database, use the official WOTS app instead — nothing lands here if you don't sign in here.</p>
 
     <h2>What we save on our server</h2>
     <p>To make the app faster (WOTS's own servers can take a while), we keep a copy of your <b>closed</b> reports — anything that's been resolved or canceled. A closed report doesn't change anymore, so caching it is safe.</p>
@@ -211,13 +212,17 @@
 
     <h2>Clearing your data</h2>
     <p><b>In your browser:</b> the log-out button in the header clears your token, phone number, and preferences from this browser. That's a one-click operation.</p>
-    <p><b>On our server:</b> the cached copies of your closed reports remain, indexed by an internal WOTS user identifier. There's no self-service delete for this yet — if you'd like your server-side cache purged, <a href="https://github.com/HackJerseyCity/wots/issues">open an issue on the GitHub project</a> and we'll do it. The same reports remain available directly from WOTS itself.</p>
+    <p><b>On our server:</b> the cached copies of your closed reports remain, indexed by an internal WOTS user identifier. There's no self-service delete for this yet — if you'd like your server-side cache purged, <a href="https://github.com/HackJerseyCity/wots-clone/issues">open an issue on the WOTS++ repo</a> and we'll do it. The same reports remain available directly from WOTS itself.</p>
 
     <h2>Source code</h2>
-    <p>The library that talks to WOTS is open-source at <a href="https://github.com/HackJerseyCity/wots">github.com/HackJerseyCity/wots</a>. It documents everything about how the WOTS interface works, including what fields exist and what data flows across the wire.</p>
+    <p>Both this app and the library it uses to talk to WOTS are open source:</p>
+    <ul>
+      <li><a href="https://github.com/HackJerseyCity/wots-clone">github.com/HackJerseyCity/wots-clone</a> — this app (server, UI, cache, stats).</li>
+      <li><a href="https://github.com/HackJerseyCity/wots">github.com/HackJerseyCity/wots</a> — the WOTS API client. Its README documents how the WOTS interface works, what fields exist, and what data flows across the wire.</li>
+    </ul>
 
     <hr>
-    <p class="muted" style="font-size: 14px;">Built at Hack Jersey City. Questions, corrections, or "hey you're doing this wrong" welcome via the GitHub issues linked above.</p>
+    <p class="muted" style="font-size: 14px;">Built at Hack Jersey City. Questions, corrections, or "hey you're doing this wrong" welcome via <a href="https://github.com/HackJerseyCity/wots-clone/issues">GitHub issues on the WOTS++ repo</a>.</p>
   </main>
 </body>
 </html>
