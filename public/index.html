@@ -263,6 +263,76 @@
       font-variant-numeric: tabular-nums;
     }
 
+    /* Filter bar */
+    .filters {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    @media (min-width: 480px) {
+      .filters { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr); }
+      .filters.has-resolution { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+    }
+    .filters input, .filters select {
+      width: 100%;
+      height: 40px;
+      padding: 0 12px;
+      font: inherit;
+      font-size: 15px;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .filters select {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M1 1.5l5 5 5-5'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 32px;
+    }
+    @media (prefers-color-scheme: dark) {
+      .filters select {
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%23a1a1aa' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M1 1.5l5 5 5-5'/></svg>");
+      }
+    }
+    .filters input:focus, .filters select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: var(--focus);
+    }
+
+    .details-progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 4px 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .details-progress .bar {
+      flex: 1;
+      height: 3px;
+      background: var(--surface-2);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .details-progress .bar > span {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+      transition: width 200ms ease;
+    }
+
+    .no-matches {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 32px 20px;
+      font-size: 14px;
+    }
+
     ul.incidents {
       list-style: none;
       padding: 0;
@@ -325,6 +395,42 @@
       max-width: 40%;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    .inc-resolution {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-top: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .inc-side {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .status.closed  { background: rgba(22, 163, 74, 0.12); color: #16a34a; }
+    .status.open    { background: rgba(37, 99, 235, 0.12); color: #2563eb; }
+    .status.working { background: rgba(217, 119, 6, 0.12); color: #d97706; }
+    .status.canceled{ background: rgba(120, 113, 108, 0.14); color: #78716c; }
+    @media (prefers-color-scheme: dark) {
+      .status.closed  { background: rgba(74, 222, 128, 0.14); color: #4ade80; }
+      .status.open    { background: rgba(96, 165, 250, 0.14); color: #93c5fd; }
+      .status.working { background: rgba(251, 191, 36, 0.14); color: #fbbf24; }
+      .status.canceled{ background: rgba(168, 162, 158, 0.14); color: #a8a29e; }
     }
 
     .empty {
@@ -504,11 +610,30 @@
         <span class="count"><span id="issues-count"></span></span>
       </div>
       <div class="card">
+        <div id="filters" class="filters hidden">
+          <input id="filter-search" type="search" placeholder="Search address, category, resolution…" autocomplete="off" />
+          <select id="filter-status" aria-label="Filter by status">
+            <option value="">All statuses</option>
+          </select>
+          <select id="filter-category" aria-label="Filter by category">
+            <option value="">All categories</option>
+          </select>
+          <select id="filter-resolution" class="hidden" aria-label="Filter by resolution">
+            <option value="">Any resolution</option>
+            <option value="yes">With resolution</option>
+            <option value="no">Without resolution</option>
+          </select>
+        </div>
+        <div id="details-progress" class="details-progress hidden">
+          <span id="details-progress-label">Loading resolutions…</span>
+          <span class="bar"><span id="details-progress-bar" style="width:0%"></span></span>
+        </div>
         <div id="issues-loading" class="empty">
           <div class="spinner" aria-hidden="true"></div>
           <div>Loading your issues…</div>
         </div>
         <ul id="issues" class="incidents hidden"></ul>
+        <div id="no-matches" class="no-matches hidden">No reports match those filters.</div>
         <div id="issues-empty" class="empty hidden">
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M9 12l2 2 4-4" />
@@ -546,6 +671,9 @@
 
     let session = null;
     let cachedItems = null;
+    const detailsCache = new Map(); // id → full incident
+    const itemNodes = new Map();    // id → { li, body }
+    let detailsInFlight = false;
 
     function setNotice(elId, msg, kind) {
       const el = $(elId);
@@ -673,8 +801,9 @@
     async function loadIssues(token) {
       showStep('step-issues');
       show('issues-loading');
-      hide('issues'); hide('issues-empty'); hide('issues-error');
+      hide('issues'); hide('issues-empty'); hide('issues-error'); hide('no-matches'); hide('filters');
       $('issues-count').textContent = '';
+      itemNodes.clear();
       try {
         const r = await api('/api/incidents', { token });
         hide('issues-loading');
@@ -684,59 +813,13 @@
           : '';
         if (items.length === 0) { show('issues-empty'); return; }
         cachedItems = items;
-        const ul = $('issues');
-        ul.innerHTML = '';
-        for (const it of items) {
-          const li = document.createElement('li');
-          const clickable = !!it.id;
-          if (clickable) {
-            li.className = 'clickable';
-            li.tabIndex = 0;
-            li.setAttribute('role', 'button');
-            li.setAttribute('aria-label', `View report ${it.primaryText || it.typeName || it.id}`);
-            li.addEventListener('click', () => openDetail(it));
-            li.addEventListener('keydown', (e) => {
-              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(it); }
-            });
-          }
-          const body = document.createElement('div');
-          body.className = 'inc-body';
-          const title = document.createElement('div');
-          title.className = 'inc-title';
-          title.textContent = it.primaryText || it.typeName || `Report ${it.id || ''}`;
-          body.appendChild(title);
-          if (it.address) {
-            const addr = document.createElement('div');
-            addr.className = 'inc-address';
-            addr.textContent = it.address;
-            body.appendChild(addr);
-          }
-          li.appendChild(body);
-          if (it.typeName && it.primaryText && it.typeName !== it.primaryText) {
-            const chip = document.createElement('span');
-            chip.className = 'inc-chip';
-            chip.textContent = it.typeName;
-            li.appendChild(chip);
-          }
-          if (clickable) {
-            const chev = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            chev.setAttribute('class', 'chev');
-            chev.setAttribute('width', '18'); chev.setAttribute('height', '18');
-            chev.setAttribute('viewBox', '0 0 24 24');
-            chev.setAttribute('fill', 'none');
-            chev.setAttribute('stroke', 'currentColor');
-            chev.setAttribute('stroke-width', '2');
-            chev.setAttribute('stroke-linecap', 'round');
-            chev.setAttribute('stroke-linejoin', 'round');
-            chev.setAttribute('aria-hidden', 'true');
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', 'M9 6l6 6-6 6');
-            chev.appendChild(path);
-            li.appendChild(chev);
-          }
-          ul.appendChild(li);
-        }
+        renderIncidentList(items);
+        buildFilterOptions(items);
+        show('filters');
         show('issues');
+        applyFilters();
+        // Background fetch details to reveal resolutions
+        fetchAllDetails(items, token);
       } catch (err) {
         hide('issues-loading');
         if (err && (err.error === 'INVALID_JWT' || err.error === 'missing token')) {
@@ -745,6 +828,195 @@
         }
         setNotice('issues-error', friendlyError(err));
       }
+    }
+
+    function statusClass(text) {
+      const s = (text || '').toLowerCase();
+      if (!s) return '';
+      if (s.includes('closed') || s.includes('resolved')) return 'closed';
+      if (s.includes('cancel')) return 'canceled';
+      if (s.includes('assigned') || s.includes('working') || s.includes('progress')) return 'working';
+      if (s.includes('open') || s.includes('received') || s.includes('reported')) return 'open';
+      return '';
+    }
+
+    function renderIncidentList(items) {
+      const ul = $('issues');
+      ul.innerHTML = '';
+      for (const it of items) {
+        const li = document.createElement('li');
+        const clickable = !!it.id;
+        if (clickable) {
+          li.className = 'clickable';
+          li.tabIndex = 0;
+          li.setAttribute('role', 'button');
+          li.setAttribute('aria-label', `View report ${it.typeName || it.primaryText || it.id}`);
+          li.addEventListener('click', () => openDetail(it));
+          li.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(it); }
+          });
+        }
+        const body = document.createElement('div');
+        body.className = 'inc-body';
+        const title = document.createElement('div');
+        title.className = 'inc-title';
+        title.textContent = it.typeName || it.primaryText || `Report ${it.id || ''}`;
+        body.appendChild(title);
+        if (it.address) {
+          const addr = document.createElement('div');
+          addr.className = 'inc-address';
+          addr.textContent = it.address;
+          body.appendChild(addr);
+        }
+        li.appendChild(body);
+
+        const side = document.createElement('div');
+        side.className = 'inc-side';
+        if (it.primaryText) {
+          const s = document.createElement('span');
+          s.className = 'status ' + statusClass(it.primaryText);
+          s.textContent = it.primaryText;
+          side.appendChild(s);
+        }
+        li.appendChild(side);
+
+        if (clickable) {
+          const chev = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          chev.setAttribute('class', 'chev');
+          chev.setAttribute('width', '18'); chev.setAttribute('height', '18');
+          chev.setAttribute('viewBox', '0 0 24 24');
+          chev.setAttribute('fill', 'none');
+          chev.setAttribute('stroke', 'currentColor');
+          chev.setAttribute('stroke-width', '2');
+          chev.setAttribute('stroke-linecap', 'round');
+          chev.setAttribute('stroke-linejoin', 'round');
+          chev.setAttribute('aria-hidden', 'true');
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('d', 'M9 6l6 6-6 6');
+          chev.appendChild(path);
+          li.appendChild(chev);
+        }
+        if (it.id) itemNodes.set(it.id, { li, body });
+        // If we already have detail cached, paint the resolution line
+        if (it.id && detailsCache.has(it.id)) {
+          paintResolutionOnItem(it.id, detailsCache.get(it.id));
+        }
+        ul.appendChild(li);
+      }
+    }
+
+    function paintResolutionOnItem(id, full) {
+      const node = itemNodes.get(id);
+      if (!node || !full) return;
+      const resText = (typeof full.publicResolution === 'string' && full.publicResolution.trim()) || '';
+      if (!resText) return;
+      let line = node.body.querySelector('.inc-resolution');
+      if (!line) {
+        line = document.createElement('div');
+        line.className = 'inc-resolution';
+        node.body.appendChild(line);
+      }
+      line.textContent = resText;
+      // Stash resolution on the li for filtering
+      node.li.dataset.resolution = resText;
+    }
+
+    function buildFilterOptions(items) {
+      const statuses = new Set();
+      const categories = new Set();
+      for (const it of items) {
+        if (it.primaryText) statuses.add(it.primaryText);
+        if (it.typeName) categories.add(it.typeName);
+      }
+      fillSelect($('filter-status'), 'All statuses', [...statuses].sort());
+      fillSelect($('filter-category'), 'All categories', [...categories].sort());
+    }
+
+    function fillSelect(sel, allLabel, values) {
+      const current = sel.value;
+      sel.innerHTML = '';
+      const opt0 = document.createElement('option');
+      opt0.value = ''; opt0.textContent = allLabel;
+      sel.appendChild(opt0);
+      for (const v of values) {
+        const o = document.createElement('option');
+        o.value = v; o.textContent = v;
+        sel.appendChild(o);
+      }
+      if (values.includes(current)) sel.value = current;
+    }
+
+    function applyFilters() {
+      if (!cachedItems) return;
+      const q = ($('filter-search').value || '').trim().toLowerCase();
+      const status = $('filter-status').value;
+      const category = $('filter-category').value;
+      const resolution = $('filter-resolution').value;
+      let visible = 0;
+      for (const it of cachedItems) {
+        const node = itemNodes.get(it.id);
+        if (!node) continue;
+        const resText = node.li.dataset.resolution || '';
+        const hay = [it.address, it.typeName, it.primaryText, resText].filter(Boolean).join(' ').toLowerCase();
+        let match = true;
+        if (q && !hay.includes(q)) match = false;
+        if (match && status && it.primaryText !== status) match = false;
+        if (match && category && it.typeName !== category) match = false;
+        if (match && resolution === 'yes' && !resText) match = false;
+        if (match && resolution === 'no' && resText) match = false;
+        node.li.classList.toggle('hidden', !match);
+        if (match) visible++;
+      }
+      const total = cachedItems.length;
+      $('issues-count').textContent = (visible === total)
+        ? `${total} report${total === 1 ? '' : 's'}`
+        : `${visible} of ${total}`;
+      $('no-matches').classList.toggle('hidden', visible > 0);
+      $('issues').classList.toggle('hidden', visible === 0);
+    }
+
+    async function fetchAllDetails(items, token) {
+      const targets = items.filter((it) => it.id && !detailsCache.has(it.id));
+      if (!targets.length || detailsInFlight) return;
+      detailsInFlight = true;
+      const bar = $('details-progress');
+      const barFill = $('details-progress-bar');
+      const label = $('details-progress-label');
+      show('details-progress');
+      let done = 0;
+      const total = targets.length;
+      let queueIdx = 0;
+      const worker = async () => {
+        while (queueIdx < targets.length) {
+          const it = targets[queueIdx++];
+          try {
+            const r = await api(`/api/incidents/${encodeURIComponent(it.id)}`, { token });
+            detailsCache.set(it.id, r.incident || {});
+            paintResolutionOnItem(it.id, r.incident);
+          } catch (_) { /* silently skip */ }
+          done++;
+          barFill.style.width = `${Math.round((done / total) * 100)}%`;
+          label.textContent = done < total
+            ? `Loading resolutions… ${done}/${total}`
+            : `Loaded ${total} resolutions`;
+          if (done === Math.ceil(total / 4)) enableResolutionFilter();
+          // Re-apply filters if the resolution filter is active or a search matches new text
+          if ($('filter-resolution').value || ($('filter-search').value || '').trim()) applyFilters();
+        }
+      };
+      const concurrency = 4;
+      await Promise.all(Array.from({ length: concurrency }, worker));
+      enableResolutionFilter();
+      applyFilters();
+      setTimeout(() => hide('details-progress'), 1200);
+      detailsInFlight = false;
+    }
+
+    function enableResolutionFilter() {
+      const sel = $('filter-resolution');
+      if (!sel.classList.contains('hidden')) return;
+      sel.classList.remove('hidden');
+      $('filters').classList.add('has-resolution');
     }
 
     function openDetail(item) {
@@ -782,18 +1054,25 @@
       const head = document.createElement('div');
       head.className = 'detail-head';
 
-      if (it.typeName) {
+      if (it.primaryText) {
         const chipRow = document.createElement('div');
         chipRow.className = 'chip-row';
         const chip = document.createElement('span');
-        chip.className = 'inc-chip';
-        chip.textContent = it.typeName;
+        chip.className = 'status ' + statusClass(it.primaryText);
+        chip.textContent = it.primaryText;
         chipRow.appendChild(chip);
+        if (it.secondaryText) {
+          const sub = document.createElement('span');
+          sub.className = 'inc-address';
+          sub.style.marginLeft = '10px';
+          sub.textContent = it.secondaryText;
+          chipRow.appendChild(sub);
+        }
         head.appendChild(chipRow);
       }
 
       const h1 = document.createElement('h1');
-      h1.textContent = it.primaryText || it.typeName || `Report ${it.id || ''}`;
+      h1.textContent = it.typeName || it.primaryText || `Report ${it.id || ''}`;
       head.appendChild(h1);
 
       if (it.address) {
@@ -822,14 +1101,18 @@
         root.appendChild(sec);
       }
 
-      const noteText = (it.userContent && typeof it.userContent.text === 'string' && it.userContent.text.trim())
-        || (typeof it.description === 'string' && it.description.trim())
-        || '';
-      if (noteText) {
+      const comments = (it.userContent && Array.isArray(it.userContent.comments)) ? it.userContent.comments : [];
+      const noteTexts = comments
+        .map((c) => (c && typeof c.text === 'string') ? c.text.trim() : '')
+        .filter(Boolean);
+      if (noteTexts.length) {
         const sec = section('Notes');
-        const p = document.createElement('p');
-        p.textContent = noteText;
-        sec.appendChild(p);
+        for (const t of noteTexts) {
+          const p = document.createElement('p');
+          p.textContent = t;
+          p.style.marginTop = sec.children.length > 1 ? '8px' : '0';
+          sec.appendChild(p);
+        }
         root.appendChild(sec);
       }
 
@@ -882,11 +1165,15 @@
         const ms = n < 1e12 ? n * 1000 : n;
         try { return new Date(ms).toLocaleString(); } catch (_) { return ''; }
       };
-      push('Reported', fmt(it.createdAt || it.reportedAt || it.timestamp));
-      push('Updated', fmt(it.updatedAt || it.resolvedAt));
-      push('Status', it.status || it.state);
-      push('Officer', (it.officer && (it.officer.name || it.officer.badge)) || it.officerName);
-      push('Citation', it.citationDescription || (it.citation && it.citation.description));
+      push('Reported', fmt(it.receivedAt || it.createdAt || it.reportedAt));
+      push('Assigned', fmt(it.assignedAt));
+      push('Resolved', fmt(it.resolvedAt));
+      push('Canceled', fmt(it.canceledAt));
+      const props = it.props || {};
+      const officer = [props.OFFICER_LABEL, props.OFFICER_BADGE && `#${props.OFFICER_BADGE}`]
+        .filter(Boolean).join(' ');
+      push('Officer', officer);
+      push('Citation', it.officerIssueDescription && it.officerIssueDescription.d);
       push('ID', it.id);
       return rows;
     }
@@ -909,6 +1196,11 @@
     $('detail-back').addEventListener('click', () => {
       showStep('step-issues');
       // list is still rendered from the last loadIssues; no refetch needed
+    });
+    ['filter-search', 'filter-status', 'filter-category', 'filter-resolution'].forEach((id) => {
+      const el = $(id);
+      el.addEventListener('input', applyFilters);
+      el.addEventListener('change', applyFilters);
     });
     $('phone').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCode(); });
     $('code').addEventListener('keydown', (e) => { if (e.key === 'Enter') verify(); });
