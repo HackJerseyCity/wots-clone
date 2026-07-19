@@ -1,0 +1,3 @@
+[submodule "wots-vendor"]
+	path = wots-vendor
+	url = https://github.com/HackJerseyCity/wots
