@@ -1076,24 +1076,8 @@
     let detailsInFlight = false;
     let viewMode = (localStorage.getItem('wots-view') === 'grid') ? 'grid' : 'table';
 
-    // -- Detail cache (localStorage, per-user, closed incidents only) ---------
-
-    function userIdFromToken() {
-      const token = localStorage.getItem('wots-token') || '';
-      const parts = token.split('.');
-      if (parts.length < 2) return '';
-      try {
-        const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-        const padded = b64 + '==='.slice((b64.length + 3) % 4);
-        return JSON.parse(atob(padded)).sub || '';
-      } catch (_) { return ''; }
-    }
-
-    function cacheKey() {
-      const uid = userIdFromToken();
-      return uid ? `wots-details:v1:${uid}` : '';
-    }
-
+    // Detail cache is server-side (SQLite). Client keeps only an in-memory
+    // Map for session-level dedup; the server seeds it via GET /api/incidents.
     function isTerminal(full) {
       if (!full || typeof full !== 'object') return false;
       const isNum = (v) => {
@@ -1103,51 +1087,12 @@
       return isNum(full.resolvedAt) || isNum(full.canceledAt);
     }
 
-    function loadCacheFromStorage() {
-      const key = cacheKey();
-      if (!key) return;
-      const raw = localStorage.getItem(key);
-      if (!raw) return;
-      try {
-        const obj = JSON.parse(raw);
-        if (obj && typeof obj === 'object') {
-          for (const [id, incident] of Object.entries(obj)) {
-            detailsCache.set(id, incident);
-          }
-        }
-      } catch (_) {
-        localStorage.removeItem(key);
+    // One-time cleanup: earlier versions stored the cache in localStorage.
+    function purgeLegacyClientCache() {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('wots-details:')) localStorage.removeItem(k);
       }
-    }
-
-    let saveTimer = null;
-    function scheduleSaveCache() {
-      if (saveTimer) clearTimeout(saveTimer);
-      saveTimer = setTimeout(persistCache, 500);
-    }
-    function persistCache() {
-      saveTimer = null;
-      const key = cacheKey();
-      if (!key) return;
-      const obj = {};
-      for (const [id, incident] of detailsCache.entries()) {
-        if (isTerminal(incident)) obj[id] = incident;
-      }
-      try {
-        localStorage.setItem(key, JSON.stringify(obj));
-      } catch (e) {
-        // Quota or serialization failure — drop the persisted copy so we
-        // don't leave a half-written blob behind.
-        try { localStorage.removeItem(key); } catch (_) {}
-        console.warn('detail cache persist failed', e);
-      }
-    }
-
-    function clearCacheFromStorage() {
-      const key = cacheKey();
-      if (key) localStorage.removeItem(key);
-      detailsCache.clear();
-      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
     }
 
     function setNotice(elId, msg, kind) {
@@ -1253,7 +1198,6 @@
         if (session && session.phone) localStorage.setItem('wots-phone', session.phone);
         sessionStorage.removeItem('wots-session');
         renderWho(session && session.phone);
-        loadCacheFromStorage();
         await loadIssues(r.token);
       } catch (err) {
         setNotice('code-error', friendlyError(err));
@@ -1299,6 +1243,11 @@
           ? `${items.length} report${items.length === 1 ? '' : 's'}`
           : '';
         if (items.length === 0) { show('issues-empty'); return; }
+        // Seed the in-memory cache from the server's cache blob.
+        const cached = r.cached || {};
+        for (const [id, incident] of Object.entries(cached)) {
+          detailsCache.set(id, incident);
+        }
         cachedItems = items;
         renderIncidentList(items);
         buildFilterOptions(items);
@@ -1619,7 +1568,6 @@
             const r = await api(`/api/incidents/${encodeURIComponent(it.id)}`, { token });
             detailsCache.set(it.id, r.incident || {});
             paintDetailOnItem(it.id, r.incident);
-            if (isTerminal(r.incident)) scheduleSaveCache();
           } catch (_) { /* silently skip */ }
           done++;
           barFill.style.width = `${Math.round((done / total) * 100)}%`;
@@ -1713,7 +1661,6 @@
         cachedItems = null;
         const canceled = r.incident || { id };
         detailsCache.set(id, canceled);
-        if (isTerminal(canceled)) scheduleSaveCache();
         const body = $('detail-body');
         body.innerHTML = '';
         renderDetail(body, canceled, /*full=*/true);
@@ -1742,7 +1689,6 @@
         const r = await api(`/api/incidents/${encodeURIComponent(item.id)}`, { token });
         const full = r.incident || {};
         detailsCache.set(item.id, full);
-        if (isTerminal(full)) scheduleSaveCache();
         const merged = Object.assign({}, item, full);
         const body = $('detail-body');
         body.innerHTML = '';
@@ -1885,7 +1831,7 @@
     }
 
     function logout() {
-      clearCacheFromStorage();
+      detailsCache.clear();
       localStorage.removeItem('wots-token');
       localStorage.removeItem('wots-phone');
       sessionStorage.removeItem('wots-session');
@@ -2138,6 +2084,7 @@
     });
 
     (function boot() {
+      purgeLegacyClientCache();
       const token = localStorage.getItem('wots-token');
       if (token) {
         let phone = localStorage.getItem('wots-phone') || '';
@@ -2146,7 +2093,6 @@
           try { if (saved) phone = JSON.parse(saved).phone || ''; } catch (_) {}
         }
         renderWho(phone);
-        loadCacheFromStorage();
         loadIssues(token);
         return;
       }

@@ -4,6 +4,12 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const WOTS = require('wots');
+const db = require('./db');
+
+function userIdFromToken(token) {
+  try { return WOTS.decodeJwtPayload(token).sub || ''; }
+  catch (_) { return ''; }
+}
 
 const PORT = process.env.PORT || 3000;
 const INDEX_HTML = fs.readFileSync(path.join(__dirname, 'public', 'index.html'));
@@ -72,7 +78,11 @@ async function handle(req, res) {
       const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
       if (!token) return send(res, 401, { error: 'missing token' });
       const items = await WOTS.all(token);
-      return send(res, 200, { items });
+      const userId = userIdFromToken(token);
+      const cached = userId
+        ? db.getMany(userId, items.map((it) => it && it.id).filter(Boolean))
+        : {};
+      return send(res, 200, { items, cached });
     }
 
     if (req.method === 'GET' && req.url.startsWith('/api/incidents/')) {
@@ -80,7 +90,13 @@ async function handle(req, res) {
       const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
       if (!token) return send(res, 401, { error: 'missing token' });
       const id = decodeURIComponent(req.url.slice('/api/incidents/'.length));
+      const userId = userIdFromToken(token);
+      if (userId) {
+        const hit = db.get(id, userId);
+        if (hit) return send(res, 200, { incident: hit, cached: true });
+      }
       const incident = await WOTS.detail(token, id);
+      if (userId) db.put(id, userId, incident);
       return send(res, 200, { incident });
     }
 
@@ -105,6 +121,10 @@ async function handle(req, res) {
       if (!token) return send(res, 401, { error: 'missing token' });
       const { cancelInfo } = await readJson(req);
       const incident = await WOTS.cancel(token, cancelInfo);
+      const userId = userIdFromToken(token);
+      if (userId && incident && cancelInfo && cancelInfo.incidentId) {
+        db.put(cancelInfo.incidentId, userId, incident);
+      }
       return send(res, 200, { incident });
     }
 
