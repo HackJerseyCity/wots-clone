@@ -1076,6 +1076,80 @@
     let detailsInFlight = false;
     let viewMode = (localStorage.getItem('wots-view') === 'grid') ? 'grid' : 'table';
 
+    // -- Detail cache (localStorage, per-user, closed incidents only) ---------
+
+    function userIdFromToken() {
+      const token = localStorage.getItem('wots-token') || '';
+      const parts = token.split('.');
+      if (parts.length < 2) return '';
+      try {
+        const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const padded = b64 + '==='.slice((b64.length + 3) % 4);
+        return JSON.parse(atob(padded)).sub || '';
+      } catch (_) { return ''; }
+    }
+
+    function cacheKey() {
+      const uid = userIdFromToken();
+      return uid ? `wots-details:v1:${uid}` : '';
+    }
+
+    function isTerminal(full) {
+      if (!full || typeof full !== 'object') return false;
+      const isNum = (v) => {
+        const n = typeof v === 'number' ? v : Number(v);
+        return Number.isFinite(n) && n > 0;
+      };
+      return isNum(full.resolvedAt) || isNum(full.canceledAt);
+    }
+
+    function loadCacheFromStorage() {
+      const key = cacheKey();
+      if (!key) return;
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      try {
+        const obj = JSON.parse(raw);
+        if (obj && typeof obj === 'object') {
+          for (const [id, incident] of Object.entries(obj)) {
+            detailsCache.set(id, incident);
+          }
+        }
+      } catch (_) {
+        localStorage.removeItem(key);
+      }
+    }
+
+    let saveTimer = null;
+    function scheduleSaveCache() {
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(persistCache, 500);
+    }
+    function persistCache() {
+      saveTimer = null;
+      const key = cacheKey();
+      if (!key) return;
+      const obj = {};
+      for (const [id, incident] of detailsCache.entries()) {
+        if (isTerminal(incident)) obj[id] = incident;
+      }
+      try {
+        localStorage.setItem(key, JSON.stringify(obj));
+      } catch (e) {
+        // Quota or serialization failure — drop the persisted copy so we
+        // don't leave a half-written blob behind.
+        try { localStorage.removeItem(key); } catch (_) {}
+        console.warn('detail cache persist failed', e);
+      }
+    }
+
+    function clearCacheFromStorage() {
+      const key = cacheKey();
+      if (key) localStorage.removeItem(key);
+      detailsCache.clear();
+      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    }
+
     function setNotice(elId, msg, kind) {
       const el = $(elId);
       el.classList.remove('error', 'info');
@@ -1179,6 +1253,7 @@
         if (session && session.phone) localStorage.setItem('wots-phone', session.phone);
         sessionStorage.removeItem('wots-session');
         renderWho(session && session.phone);
+        loadCacheFromStorage();
         await loadIssues(r.token);
       } catch (err) {
         setNotice('code-error', friendlyError(err));
@@ -1516,15 +1591,26 @@
     }
 
     async function fetchAllDetails(items, token) {
+      // First, paint everything we already have in cache (from localStorage)
+      // and unlock the resolution filters + datalist immediately.
+      const cachedHits = items.filter((it) => it.id && detailsCache.has(it.id));
+      for (const it of cachedHits) paintDetailOnItem(it.id, detailsCache.get(it.id));
+      if (cachedHits.length) {
+        enableResolutionFilters();
+        rebuildResolutionSuggestions();
+        applyFilters();
+      }
+
       const targets = items.filter((it) => it.id && !detailsCache.has(it.id));
       if (!targets.length || detailsInFlight) return;
       detailsInFlight = true;
-      const bar = $('details-progress');
       const barFill = $('details-progress-bar');
       const label = $('details-progress-label');
       show('details-progress');
       let done = 0;
       const total = targets.length;
+      const cachedCount = cachedHits.length;
+      const suffix = cachedCount ? ` · ${cachedCount} cached` : '';
       let queueIdx = 0;
       const worker = async () => {
         while (queueIdx < targets.length) {
@@ -1533,15 +1619,15 @@
             const r = await api(`/api/incidents/${encodeURIComponent(it.id)}`, { token });
             detailsCache.set(it.id, r.incident || {});
             paintDetailOnItem(it.id, r.incident);
+            if (isTerminal(r.incident)) scheduleSaveCache();
           } catch (_) { /* silently skip */ }
           done++;
           barFill.style.width = `${Math.round((done / total) * 100)}%`;
           label.textContent = done < total
-            ? `Loading resolutions… ${done}/${total}`
-            : `Loaded ${total} resolutions`;
+            ? `Loading resolutions… ${done}/${total}${suffix}`
+            : `Loaded ${total} resolutions${suffix}`;
           if (done === Math.ceil(total / 4)) enableResolutionFilters();
           rebuildResolutionSuggestions();
-          // Re-apply if any resolution-sensitive filter is active
           if ($('filter-resolution-status').value
               || $('filter-resolution-text').value
               || ($('filter-search').value || '').trim()) {
@@ -1625,10 +1711,12 @@
         });
         localStorage.removeItem(`wots-cancel:${id}`);
         cachedItems = null;
-        detailsCache.delete(id);
+        const canceled = r.incident || { id };
+        detailsCache.set(id, canceled);
+        if (isTerminal(canceled)) scheduleSaveCache();
         const body = $('detail-body');
         body.innerHTML = '';
-        renderDetail(body, r.incident || { id }, /*full=*/true);
+        renderDetail(body, canceled, /*full=*/true);
         hide('detail-actions');
       } catch (err) {
         btn.disabled = false;
@@ -1640,9 +1728,21 @@
     async function loadDetail(item) {
       const token = localStorage.getItem('wots-token');
       if (!token || !item || !item.id) return;
+      // If we already have this in cache (from an earlier session or list
+      // fetch), paint it immediately — but still re-fetch when non-terminal
+      // so open incidents can update.
+      const cached = detailsCache.get(item.id);
+      if (cached) {
+        const body = $('detail-body');
+        body.innerHTML = '';
+        renderDetail(body, Object.assign({}, item, cached), /*full=*/true);
+        if (isTerminal(cached)) return;
+      }
       try {
         const r = await api(`/api/incidents/${encodeURIComponent(item.id)}`, { token });
         const full = r.incident || {};
+        detailsCache.set(item.id, full);
+        if (isTerminal(full)) scheduleSaveCache();
         const merged = Object.assign({}, item, full);
         const body = $('detail-body');
         body.innerHTML = '';
@@ -1785,6 +1885,7 @@
     }
 
     function logout() {
+      clearCacheFromStorage();
       localStorage.removeItem('wots-token');
       localStorage.removeItem('wots-phone');
       sessionStorage.removeItem('wots-session');
@@ -2045,6 +2146,7 @@
           try { if (saved) phone = JSON.parse(saved).phone || ''; } catch (_) {}
         }
         renderWho(phone);
+        loadCacheFromStorage();
         loadIssues(token);
         return;
       }
