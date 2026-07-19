@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WOTS</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --fg: #111;
+      --muted: #666;
+      --bg: #fafafa;
+      --card: #fff;
+      --border: #e3e3e3;
+      --accent: #2b6cb0;
+      --danger: #c53030;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fg: #eee;
+        --muted: #999;
+        --bg: #111;
+        --card: #1a1a1a;
+        --border: #2a2a2a;
+        --accent: #63b3ed;
+        --danger: #fc8181;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      color: var(--fg);
+      background: var(--bg);
+    }
+    header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+    header .who { color: var(--muted); font-size: 13px; }
+    main { max-width: 720px; margin: 0 auto; padding: 24px 20px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+    }
+    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      font: inherit;
+      color: var(--fg);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+    button {
+      padding: 10px 16px;
+      font: inherit;
+      font-weight: 500;
+      color: white;
+      background: var(--accent);
+      border: 0;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.link {
+      background: none;
+      color: var(--accent);
+      padding: 6px 0;
+      font-weight: normal;
+    }
+    .row { display: flex; gap: 8px; align-items: flex-end; }
+    .row > div { flex: 1; }
+    .actions { margin-top: 16px; display: flex; gap: 12px; align-items: center; }
+    .error {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--danger) 15%, transparent);
+      color: var(--danger);
+      font-size: 13px;
+    }
+    ul.incidents { list-style: none; padding: 0; margin: 0; }
+    ul.incidents li {
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    ul.incidents li:last-child { border-bottom: 0; }
+    .inc-title { font-weight: 500; }
+    .inc-meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
+    .empty { color: var(--muted); text-align: center; padding: 40px 0; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>WOTS</h1>
+    <div id="who" class="who"></div>
+  </header>
+  <main>
+    <section id="step-phone" class="card">
+      <label for="phone">Phone number</label>
+      <input id="phone" type="tel" placeholder="555-123-4567" autocomplete="tel" />
+      <div class="actions">
+        <button id="send-code">Send code</button>
+      </div>
+      <div id="phone-error" class="error hidden"></div>
+    </section>
+
+    <section id="step-code" class="card hidden">
+      <label for="code">4-digit code sent to <span id="code-phone"></span></label>
+      <input id="code" type="text" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="one-time-code" />
+      <div class="actions">
+        <button id="verify">Verify</button>
+        <button id="resend" class="link" type="button">Resend code</button>
+        <button id="back" class="link" type="button">Use different number</button>
+      </div>
+      <div id="code-error" class="error hidden"></div>
+    </section>
+
+    <section id="step-issues" class="hidden">
+      <div class="actions" style="margin-bottom: 16px; justify-content: flex-end;">
+        <button id="logout" class="link" type="button">Log out</button>
+      </div>
+      <div class="card">
+        <div id="issues-loading" class="empty">Loading your issues…</div>
+        <ul id="issues" class="incidents hidden"></ul>
+        <div id="issues-empty" class="empty hidden">No issues yet.</div>
+        <div id="issues-error" class="error hidden"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const show = (id) => $(id).classList.remove('hidden');
+    const hide = (id) => $(id).classList.add('hidden');
+
+    let session = null;
+
+    function setError(elId, msg) {
+      const el = $(elId);
+      if (!msg) { hide(elId); el.textContent = ''; return; }
+      el.textContent = msg;
+      show(elId);
+    }
+
+    function friendlyError(err) {
+      const code = err && err.error;
+      switch (code) {
+        case 'INVALID_PHONE': return 'That phone number does not look right.';
+        case 'INVALID_CODE_FORMAT': return 'Enter the 4-digit code.';
+        case 'CODE_NOT_VALID': return 'That code was not accepted.';
+        case 'SMS_THRESHOLD': return 'Too many attempts — try again later.';
+        case 'TIMEOUT': return 'Request timed out. Try again.';
+        case 'NETWORK_ERROR': return 'Network error. Try again.';
+        default: return (err && err.message) || 'Something went wrong.';
+      }
+    }
+
+    async function api(path, opts = {}) {
+      const res = await fetch(path, {
+        method: opts.method || 'GET',
+        headers: {
+          'content-type': 'application/json',
+          ...(opts.token ? { authorization: `Bearer ${opts.token}` } : {}),
+        },
+        body: opts.body ? JSON.stringify(opts.body) : undefined,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw data;
+      return data;
+    }
+
+    function showStep(step) {
+      hide('step-phone'); hide('step-code'); hide('step-issues');
+      show(step);
+    }
+
+    async function sendCode() {
+      const phone = $('phone').value.trim();
+      if (!phone) return setError('phone-error', 'Enter a phone number.');
+      setError('phone-error', null);
+      $('send-code').disabled = true;
+      try {
+        const r = await api('/api/start-login', { method: 'POST', body: { phone } });
+        session = r.session;
+        sessionStorage.setItem('wots-session', JSON.stringify(session));
+        $('code-phone').textContent = session.phone;
+        showStep('step-code');
+        $('code').focus();
+      } catch (err) {
+        setError('phone-error', friendlyError(err));
+      } finally {
+        $('send-code').disabled = false;
+      }
+    }
+
+    async function verify() {
+      const code = $('code').value.trim();
+      if (!code) return setError('code-error', 'Enter the code.');
+      setError('code-error', null);
+      $('verify').disabled = true;
+      try {
+        const r = await api('/api/complete-login', {
+          method: 'POST',
+          body: { session, code },
+        });
+        localStorage.setItem('wots-token', r.token);
+        sessionStorage.removeItem('wots-session');
+        await loadIssues(r.token);
+      } catch (err) {
+        setError('code-error', friendlyError(err));
+      } finally {
+        $('verify').disabled = false;
+      }
+    }
+
+    async function resend() {
+      if (!session) return;
+      setError('code-error', null);
+      try {
+        await api('/api/resend-code', { method: 'POST', body: { session } });
+        setError('code-error', 'A new code was sent.');
+      } catch (err) {
+        setError('code-error', friendlyError(err));
+      }
+    }
+
+    async function loadIssues(token) {
+      showStep('step-issues');
+      show('issues-loading');
+      hide('issues'); hide('issues-empty'); hide('issues-error');
+      try {
+        const r = await api('/api/incidents', { token });
+        hide('issues-loading');
+        const items = r.items || [];
+        if (items.length === 0) { show('issues-empty'); return; }
+        const ul = $('issues');
+        ul.innerHTML = '';
+        for (const it of items) {
+          const li = document.createElement('li');
+          const title = document.createElement('div');
+          title.className = 'inc-title';
+          title.textContent = it.primaryText || it.typeName || `Report ${it.id || ''}`;
+          const meta = document.createElement('div');
+          meta.className = 'inc-meta';
+          const bits = [it.typeName, it.address].filter(Boolean);
+          meta.textContent = bits.join(' — ');
+          li.appendChild(title);
+          if (bits.length) li.appendChild(meta);
+          ul.appendChild(li);
+        }
+        show('issues');
+      } catch (err) {
+        hide('issues-loading');
+        if (err && (err.error === 'INVALID_JWT' || err.error === 'missing token')) {
+          logout();
+          return;
+        }
+        $('issues-error').textContent = friendlyError(err);
+        show('issues-error');
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('wots-token');
+      sessionStorage.removeItem('wots-session');
+      session = null;
+      $('phone').value = '';
+      $('code').value = '';
+      $('who').textContent = '';
+      showStep('step-phone');
+      $('phone').focus();
+    }
+
+    $('send-code').addEventListener('click', sendCode);
+    $('verify').addEventListener('click', verify);
+    $('resend').addEventListener('click', resend);
+    $('back').addEventListener('click', logout);
+    $('logout').addEventListener('click', logout);
+    $('phone').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCode(); });
+    $('code').addEventListener('keydown', (e) => { if (e.key === 'Enter') verify(); });
+
+    (function boot() {
+      const token = localStorage.getItem('wots-token');
+      if (token) { loadIssues(token); return; }
+      const saved = sessionStorage.getItem('wots-session');
+      if (saved) {
+        try {
+          session = JSON.parse(saved);
+          $('code-phone').textContent = session.phone;
+          showStep('step-code');
+          $('code').focus();
+          return;
+        } catch (_) { /* fall through */ }
+      }
+      showStep('step-phone');
+      $('phone').focus();
+    })();
+  </script>
+</body>
+</html>
