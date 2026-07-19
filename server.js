@@ -13,6 +13,7 @@ function userIdFromToken(token) {
 
 const PORT = process.env.PORT || 3000;
 const INDEX_HTML = fs.readFileSync(path.join(__dirname, 'public', 'index.html'));
+const STATS_HTML = fs.readFileSync(path.join(__dirname, 'public', 'stats.html'));
 
 function send(res, status, body, headers = {}) {
   res.writeHead(status, { 'content-type': 'application/json', ...headers });
@@ -51,6 +52,12 @@ async function handle(req, res) {
   if (req.method === 'GET' && req.url === '/') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(INDEX_HTML);
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/stats') {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(STATS_HTML);
     return;
   }
 
@@ -102,6 +109,11 @@ async function handle(req, res) {
 
     if (req.method === 'GET' && req.url === '/api/types') {
       return send(res, 200, { types: WOTS.TYPES });
+    }
+
+    if (req.method === 'GET' && req.url === '/api/stats') {
+      // Public, anonymized aggregates across every cached (terminal) incident.
+      return send(res, 200, db.stats());
     }
 
     if (req.method === 'POST' && req.url === '/api/submit') {

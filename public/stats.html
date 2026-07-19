@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#fafaf9" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0c0c0d" media="(prefers-color-scheme: dark)" />
+  <title>WOTS++ · Stats</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #fafaf9;
+      --surface: #ffffff;
+      --surface-2: #f5f5f4;
+      --border: rgba(20, 20, 20, 0.08);
+      --border-strong: rgba(20, 20, 20, 0.14);
+      --text: #18181b;
+      --muted: #6b7280;
+      --subtle: #9ca3af;
+      --accent: #1d4ed8;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0c0c0d;
+        --surface: #17171a;
+        --surface-2: #1f1f23;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-strong: rgba(255, 255, 255, 0.16);
+        --text: #f4f4f5;
+        --muted: #a1a1aa;
+        --subtle: #71717a;
+        --accent: #60a5fa;
+      }
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; }
+    .brand-mark {
+      width: 22px; height: 22px; border-radius: 6px;
+      background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #a855f7));
+    }
+    header a { color: var(--muted); text-decoration: none; font-size: 14px; }
+    header a:hover { color: var(--text); }
+
+    main { max-width: 1200px; margin: 0 auto; padding: clamp(24px, 5vw, 40px) 24px; }
+    h1 {
+      font-size: clamp(22px, 4vw, 28px);
+      margin: 0 0 6px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+    h2 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--muted); font-weight: 600;
+      margin: 32px 0 12px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+    }
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .stat .n { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+    .stat .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; margin-top: 4px; }
+
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      overflow-x: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--muted); font-weight: 600;
+      background: var(--surface-2); position: sticky; top: 0;
+    }
+    tr:last-child td { border-bottom: 0; }
+    td.n, th.n { text-align: right; white-space: nowrap; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .excerpt { max-width: 620px; }
+
+    .bar-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .bar-track {
+      flex: 1;
+      height: 6px;
+      background: var(--surface-2);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: var(--accent);
+      transition: width 200ms ease;
+    }
+
+    .loading, .error {
+      padding: 60px 20px; text-align: center; color: var(--muted);
+    }
+    .error { color: #b91c1c; }
+
+    .meta { color: var(--subtle); font-size: 12px; margin-top: 24px; text-align: right; }
+    @media (max-width: 640px) {
+      main { padding: 20px 16px; }
+      td, th { padding: 8px 10px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/" style="color: inherit; text-decoration: none;">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>WOTS++</span>
+      <span class="muted" style="font-weight: normal; margin-left: 6px;">· stats</span>
+    </a>
+    <a href="/">Back to app →</a>
+  </header>
+  <main id="content">
+    <div class="loading">Loading stats…</div>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const nfmt = new Intl.NumberFormat();
+
+    function pct(x) { return `${Math.round(x * 100)}%`; }
+
+    function fmtDuration(secs) {
+      if (secs == null) return '—';
+      if (secs < 60) return `${Math.round(secs)}s`;
+      const d = Math.floor(secs / 86400);
+      const h = Math.floor((secs % 86400) / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      if (d > 0) return h > 0 ? `${d}d ${h}h` : `${d}d`;
+      if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+      return `${m}m`;
+    }
+
+    function escHtml(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function bar(v, max) {
+      const p = max ? Math.round((v / max) * 100) : 0;
+      return `<div class="bar-row"><div class="bar-track"><div class="bar-fill" style="width:${p}%"></div></div><span>${nfmt.format(v)}</span></div>`;
+    }
+
+    async function render() {
+      let s;
+      try {
+        const res = await fetch('/api/stats');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        s = await res.json();
+      } catch (err) {
+        $('content').innerHTML = `<div class="error">Could not load stats: ${escHtml(err.message || err)}</div>`;
+        return;
+      }
+
+      const t = s.totals;
+      const parts = [];
+      parts.push(`
+        <h1>Insights from ${nfmt.format(t.total)} closed reports</h1>
+        <div class="subtitle">Site-wide aggregates across every terminal (resolved or canceled) incident cached on the server. Fully anonymized — no addresses, ids, or reporter info.</div>
+        <div class="cards">
+          <div class="stat"><div class="n">${nfmt.format(t.total)}</div><div class="l">Total (cached)</div></div>
+          <div class="stat"><div class="n">${nfmt.format(t.resolved)}</div><div class="l">Resolved · ${pct(t.resolutionRate)}</div></div>
+          <div class="stat"><div class="n">${nfmt.format(t.canceled)}</div><div class="l">Canceled · ${pct(t.cancelRate)}</div></div>
+          <div class="stat"><div class="n">${s.resolutionTimeOverall ? fmtDuration(s.resolutionTimeOverall.medianSecs) : '—'}</div><div class="l">Median time to resolve</div></div>
+          <div class="stat"><div class="n">${s.resolutionTimeOverall ? fmtDuration(s.resolutionTimeOverall.p95Secs) : '—'}</div><div class="l">p95 time to resolve</div></div>
+        </div>
+      `);
+
+      // Buckets
+      const b = s.resolutionTimeBuckets;
+      const bt = Object.values(b).reduce((a, c) => a + c, 0);
+      const bmax = Math.max(1, ...Object.values(b));
+      parts.push('<h2>Time to resolve — distribution</h2><div class="table-wrap"><table>');
+      parts.push('<tr><th>Bucket</th><th class="n">Count</th><th class="n">Share</th><th style="width:50%">Distribution</th></tr>');
+      const bucketRows = [
+        ['Under 1 hour',   b.under1hr],
+        ['Under 1 day',    b.under1day],
+        ['Under 1 week',   b.under1week],
+        ['Under 1 month',  b.under1month],
+        ['Over 1 month',   b.over1month],
+      ];
+      for (const [label, n] of bucketRows) {
+        parts.push(`<tr>
+          <td>${label}</td>
+          <td class="n">${nfmt.format(n)}</td>
+          <td class="n">${bt ? pct(n / bt) : '—'}</td>
+          <td>${bar(n, bmax)}</td>
+        </tr>`);
+      }
+      parts.push('</table></div>');
+
+      // By type
+      parts.push('<h2>By type</h2><div class="table-wrap"><table>');
+      parts.push('<tr><th>Type</th><th class="n">Reports</th><th class="n">Resolved</th><th class="n">Rate</th><th class="n">Median time</th><th class="n">p95</th></tr>');
+      for (const row of s.byType.slice(0, 25)) {
+        const rt = row.resolutionTime;
+        parts.push(`<tr>
+          <td>${escHtml(row.typeName)}</td>
+          <td class="n">${nfmt.format(row.count)}</td>
+          <td class="n">${nfmt.format(row.resolvedCount)}</td>
+          <td class="n">${pct(row.resolutionRate)}</td>
+          <td class="n">${rt ? fmtDuration(rt.medianSecs) : '—'}</td>
+          <td class="n">${rt ? fmtDuration(rt.p95Secs) : '—'}</td>
+        </tr>`);
+      }
+      parts.push('</table></div>');
+
+      // By resolution
+      parts.push('<h2>Common resolutions</h2><div class="table-wrap"><table>');
+      parts.push('<tr><th class="excerpt">Resolution</th><th class="n">Count</th><th>Top types</th><th class="n">Median time</th></tr>');
+      for (const row of s.byResolution.slice(0, 20)) {
+        const excerpt = row.resolution.length > 240 ? row.resolution.slice(0, 240) + '…' : row.resolution;
+        const types = row.topTypes.map((tt) => `${escHtml(tt.typeName)} <span class="muted">(${tt.count})</span>`).join(', ');
+        const rt = row.resolutionTime;
+        parts.push(`<tr>
+          <td class="excerpt">${escHtml(excerpt)}</td>
+          <td class="n">${nfmt.format(row.count)}</td>
+          <td class="muted">${types}</td>
+          <td class="n">${rt ? fmtDuration(rt.medianSecs) : '—'}</td>
+        </tr>`);
+      }
+      parts.push('</table></div>');
+
+      // By officer
+      if (s.byOfficer.length) {
+        parts.push('<h2>By officer</h2><div class="table-wrap"><table>');
+        parts.push('<tr><th>Officer</th><th class="n">Reports</th><th class="n">Resolved</th><th class="n">Rate</th><th class="n">Median time</th><th class="n">p95</th></tr>');
+        for (const row of s.byOfficer.slice(0, 30)) {
+          const rt = row.resolutionTime;
+          parts.push(`<tr>
+            <td>${escHtml(row.officer)}</td>
+            <td class="n">${nfmt.format(row.count)}</td>
+            <td class="n">${nfmt.format(row.resolvedCount)}</td>
+            <td class="n">${pct(row.resolutionRate)}</td>
+            <td class="n">${rt ? fmtDuration(rt.medianSecs) : '—'}</td>
+            <td class="n">${rt ? fmtDuration(rt.p95Secs) : '—'}</td>
+          </tr>`);
+        }
+        parts.push('</table></div>');
+      }
+
+      // By month
+      if (s.byMonth.length) {
+        const monthMax = Math.max(1, ...s.byMonth.map((m) => Math.max(m.reported, m.resolved, m.canceled)));
+        parts.push('<h2>Monthly activity</h2><div class="table-wrap"><table>');
+        parts.push('<tr><th>Month</th><th class="n">Reported</th><th class="n">Resolved</th><th class="n">Canceled</th><th style="width:35%">Reported</th></tr>');
+        for (const m of s.byMonth) {
+          parts.push(`<tr>
+            <td>${m.month}</td>
+            <td class="n">${nfmt.format(m.reported)}</td>
+            <td class="n">${nfmt.format(m.resolved)}</td>
+            <td class="n">${nfmt.format(m.canceled)}</td>
+            <td>${bar(m.reported, monthMax)}</td>
+          </tr>`);
+        }
+        parts.push('</table></div>');
+      }
+
+      const gen = new Date(s.generatedAt).toLocaleString();
+      parts.push(`<div class="meta">Generated ${gen} · <a href="/api/stats" style="color:inherit;">/api/stats</a></div>`);
+
+      $('content').innerHTML = parts.join('');
+    }
+
+    render();
+  </script>
+</body>
+</html>

@@ -99,4 +99,158 @@ function del(id, userId) {
   _del.run(id, userId);
 }
 
-module.exports = { get, getMany, put, del, isTerminal, db, DB_PATH };
+// ---------- Aggregates ------------------------------------------------------
+// Site-wide, anonymized. Never returns id, user_id, address, phone, comments,
+// or image URLs — only the aggregable dimensions (type, resolution phrase,
+// timestamps, officer role label).
+
+const _statsRowsStmt = db.prepare(`
+  SELECT
+    type_name,
+    primary_text,
+    public_resolution,
+    received_at,
+    resolved_at,
+    canceled_at,
+    json_extract(data, '$.props.OFFICER_LABEL') AS officer
+  FROM incident_details
+`);
+
+function durationStats(arr) {
+  if (!arr.length) return null;
+  const sorted = arr.slice().sort((a, b) => a - b);
+  const at = (p) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
+  const sum = arr.reduce((a, b) => a + b, 0);
+  return {
+    count: arr.length,
+    meanSecs: Math.round(sum / arr.length),
+    medianSecs: Math.round(at(0.5)),
+    p95Secs: Math.round(at(0.95)),
+    minSecs: Math.round(sorted[0]),
+    maxSecs: Math.round(sorted[sorted.length - 1]),
+  };
+}
+
+function monthKey(ms) {
+  const d = new Date(ms);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+function stats() {
+  const rows = _statsRowsStmt.all();
+
+  let total = 0, resolved = 0, canceled = 0;
+  const byType = new Map();
+  const byResolution = new Map();
+  const byOfficer = new Map();
+  const byMonth = new Map();
+  const buckets = { under1hr: 0, under1day: 0, under1week: 0, under1month: 0, over1month: 0 };
+  const allDurations = [];
+
+  const bumpMonth = (m, key) => {
+    if (!m.has(key)) m.set(key, { month: key, reported: 0, resolved: 0, canceled: 0 });
+    return m.get(key);
+  };
+
+  for (const r of rows) {
+    total++;
+    const isCanceled = r.canceled_at != null && r.canceled_at > 0;
+    const isResolved = !isCanceled && r.resolved_at != null && r.resolved_at > 0;
+    if (isCanceled) canceled++;
+    if (isResolved) resolved++;
+
+    const dur = (isResolved && r.received_at) ? (r.resolved_at - r.received_at) / 1000 : null;
+    if (dur !== null && dur > 0) allDurations.push(dur);
+
+    if (r.type_name) {
+      if (!byType.has(r.type_name)) {
+        byType.set(r.type_name, { typeName: r.type_name, count: 0, resolved: 0, canceled: 0, durations: [] });
+      }
+      const t = byType.get(r.type_name);
+      t.count++;
+      if (isCanceled) t.canceled++;
+      if (isResolved) t.resolved++;
+      if (dur !== null && dur > 0) t.durations.push(dur);
+    }
+
+    if (r.public_resolution) {
+      if (!byResolution.has(r.public_resolution)) {
+        byResolution.set(r.public_resolution, { resolution: r.public_resolution, count: 0, types: new Map(), durations: [] });
+      }
+      const b = byResolution.get(r.public_resolution);
+      b.count++;
+      if (r.type_name) b.types.set(r.type_name, (b.types.get(r.type_name) || 0) + 1);
+      if (dur !== null && dur > 0) b.durations.push(dur);
+    }
+
+    if (r.officer) {
+      if (!byOfficer.has(r.officer)) {
+        byOfficer.set(r.officer, { officer: r.officer, count: 0, resolved: 0, canceled: 0, durations: [] });
+      }
+      const o = byOfficer.get(r.officer);
+      o.count++;
+      if (isCanceled) o.canceled++;
+      if (isResolved) o.resolved++;
+      if (dur !== null && dur > 0) o.durations.push(dur);
+    }
+
+    if (r.received_at) bumpMonth(byMonth, monthKey(r.received_at)).reported++;
+    if (isResolved && r.resolved_at) bumpMonth(byMonth, monthKey(r.resolved_at)).resolved++;
+    if (isCanceled && r.canceled_at) bumpMonth(byMonth, monthKey(r.canceled_at)).canceled++;
+
+    if (dur !== null && dur > 0) {
+      if (dur < 3600) buckets.under1hr++;
+      else if (dur < 86400) buckets.under1day++;
+      else if (dur < 604800) buckets.under1week++;
+      else if (dur < 2592000) buckets.under1month++;
+      else buckets.over1month++;
+    }
+  }
+
+  const roundRate = (n, d) => d ? Math.round((n / d) * 1000) / 1000 : 0;
+
+  return {
+    generatedAt: Date.now(),
+    totals: {
+      total, resolved, canceled,
+      resolutionRate: roundRate(resolved, total),
+      cancelRate: roundRate(canceled, total),
+    },
+    resolutionTimeOverall: durationStats(allDurations),
+    resolutionTimeBuckets: buckets,
+    byType: [...byType.values()]
+      .map((t) => ({
+        typeName: t.typeName,
+        count: t.count,
+        resolvedCount: t.resolved,
+        canceledCount: t.canceled,
+        resolutionRate: roundRate(t.resolved, t.count),
+        resolutionTime: durationStats(t.durations),
+      }))
+      .sort((a, b) => b.count - a.count),
+    byResolution: [...byResolution.values()]
+      .map((b) => ({
+        resolution: b.resolution,
+        count: b.count,
+        topTypes: [...b.types.entries()]
+          .map(([typeName, count]) => ({ typeName, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5),
+        resolutionTime: durationStats(b.durations),
+      }))
+      .sort((a, b) => b.count - a.count),
+    byOfficer: [...byOfficer.values()]
+      .map((o) => ({
+        officer: o.officer,
+        count: o.count,
+        resolvedCount: o.resolved,
+        canceledCount: o.canceled,
+        resolutionRate: roundRate(o.resolved, o.count),
+        resolutionTime: durationStats(o.durations),
+      }))
+      .sort((a, b) => b.count - a.count),
+    byMonth: [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month)),
+  };
+}
+
+module.exports = { get, getMany, put, del, isTerminal, stats, db, DB_PATH };
