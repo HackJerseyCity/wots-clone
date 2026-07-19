@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#fafaf9" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0c0c0d" media="(prefers-color-scheme: dark)" />
+  <title>WOTS++ · About</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #fafaf9;
+      --surface: #ffffff;
+      --surface-2: #f5f5f4;
+      --border: rgba(20, 20, 20, 0.08);
+      --text: #18181b;
+      --muted: #6b7280;
+      --subtle: #9ca3af;
+      --accent: #1d4ed8;
+      --warn-bg: rgba(217, 119, 6, 0.10);
+      --warn-fg: #b45309;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0c0c0d;
+        --surface: #17171a;
+        --surface-2: #1f1f23;
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #f4f4f5;
+        --muted: #a1a1aa;
+        --subtle: #71717a;
+        --accent: #60a5fa;
+        --warn-bg: rgba(251, 191, 36, 0.10);
+        --warn-fg: #fbbf24;
+      }
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; text-decoration: none; color: inherit; }
+    .brand-mark {
+      width: 22px; height: 22px; border-radius: 6px;
+      background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #a855f7));
+    }
+    header nav { display: flex; gap: 16px; }
+    header nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+    header nav a:hover { color: var(--text); }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: clamp(28px, 5vw, 56px) 24px;
+    }
+    h1 {
+      font-size: clamp(26px, 5vw, 32px);
+      margin: 0 0 8px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .lede { color: var(--muted); font-size: 17px; margin-bottom: 40px; }
+    h2 {
+      margin: 44px 0 12px;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    h3 {
+      margin: 28px 0 8px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    p { margin: 0 0 14px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    ul { padding-left: 22px; margin: 0 0 14px; }
+    li { margin: 6px 0; }
+    li b { font-weight: 600; }
+
+    .callout {
+      margin: 18px 0;
+      padding: 14px 18px;
+      background: var(--surface-2);
+      border-left: 3px solid var(--accent);
+      border-radius: 8px;
+      font-size: 15px;
+    }
+    .callout.warn {
+      background: var(--warn-bg);
+      border-left-color: var(--warn-fg);
+    }
+    .callout p:last-child { margin-bottom: 0; }
+    .muted { color: var(--muted); }
+    hr {
+      border: 0; border-top: 1px solid var(--border);
+      margin: 44px 0 24px;
+    }
+    footer {
+      color: var(--subtle);
+      font-size: 13px;
+      text-align: center;
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>WOTS++</span>
+      <span class="muted" style="font-weight: normal; margin-left: 6px;">· about</span>
+    </a>
+    <nav>
+      <a href="/">App</a>
+      <a href="/stats">Stats</a>
+    </nav>
+  </header>
+
+  <main>
+    <h1>About WOTS++</h1>
+    <p class="lede">A friendlier way to browse your WOTS reports — and a straightforward account of what happens to your data along the way.</p>
+
+    <h2>What this is</h2>
+    <p>WOTS++ is an independent web app that talks to <b>WOTS</b> — Jersey City's reporting app for parking, quality-of-life, and neighborhood-safety issues — using the same public interface the official app uses. Signing in here signs you in to your existing WOTS account; there is no separate account to create.</p>
+    <p>It exists because the official app hides a lot of your own history behind a slow list. WOTS++ pulls everything together so you can search, filter, and see what happened to your reports at a glance.</p>
+    <p>This project is not affiliated with WOTS, the City of Jersey City, or its police department.</p>
+
+    <h2>Signing in</h2>
+    <p>Sign-in works exactly like the official app: you type your phone number, WOTS texts you a 4-digit code, you type it back, and WOTS gives us a sign-in token that stands in for your account.</p>
+    <ul>
+      <li>The <b>4-digit code</b> is used once and thrown away — never saved anywhere.</li>
+      <li>The <b>sign-in token</b> stays in your browser (in "local storage"), not on our server. Closing all your browsers eventually clears it; the "log out" button clears it immediately.</li>
+      <li>Your <b>phone number</b> is saved in your browser so you don't have to retype it when you file a new report.</li>
+    </ul>
+
+    <h2>What we can see</h2>
+    <p>Once you're signed in, we can see everything WOTS shows you about <b>your own</b> reports — the addresses, photos you attached, comments you wrote, and how the reports were resolved. WOTS doesn't share other people's reports with us, so we can't see them either.</p>
+
+    <h2>What we save on our server</h2>
+    <p>To make the app faster (WOTS's own servers can take a while), we keep a copy of your <b>closed</b> reports — anything that's been resolved or canceled. A closed report doesn't change anymore, so caching it is safe.</p>
+    <p>Reports that are still open, waiting, or in progress are <b>not</b> saved on our server. We fetch those live from WOTS every time you look at them.</p>
+    <p>The saved copy of a closed report includes:</p>
+    <ul>
+      <li>The type of issue ("Parking in crosswalk", etc.) and the address you filed</li>
+      <li>Comments you wrote when submitting</li>
+      <li>Links to the photos you attached (we save the <i>links</i>, not the photos themselves — those still live on WOTS)</li>
+      <li>The officer information and the resolution text WOTS sent back</li>
+      <li>When the report was filed, assigned, and resolved</li>
+    </ul>
+
+    <div class="callout warn">
+      <p><b>The one piece of personal data we should call out:</b> WOTS attaches your phone number to every incident report you file — it's how officers can follow up. Because we save the full report, the phone number is saved alongside it. It's never shown in the WOTS++ interface, never sent to anyone else, and never used for anything but reading back your own records.</p>
+    </div>
+
+    <h3>What we do <i>not</i> save on our server</h3>
+    <ul>
+      <li>Your sign-in token</li>
+      <li>The 4-digit SMS code</li>
+      <li>Any analytics, tracking pixels, cookies, or telemetry — no Google Analytics, no ad networks, nothing</li>
+      <li>The photo files themselves — only the WOTS links to them</li>
+    </ul>
+
+    <h2>The public stats page</h2>
+    <p>We publish a <a href="/stats">public stats page</a> with insights across every closed report we've cached — things like "what's the most-reported issue type", "how long does the average parking complaint take to resolve", and "which officers close which kinds of reports". This is drawn from every user's data pooled together.</p>
+    <p>The stats page is fully anonymized. It never includes:</p>
+    <ul>
+      <li>Report IDs or the internal WOTS user IDs</li>
+      <li>Addresses</li>
+      <li>Phone numbers</li>
+      <li>The comments you wrote</li>
+      <li>Photo links</li>
+    </ul>
+    <p>Only the aggregable dimensions — issue type, resolution phrase (grouped exactly, so you can see how often each canned response appears), timestamps, and the officer's public role label — go into it. You can look at the <a href="/api/stats">raw data behind the page</a> to confirm.</p>
+
+    <h2>Sharing</h2>
+    <p>We don't share, sell, or hand over your data to anyone. There are exactly two kinds of network requests happening:</p>
+    <ul>
+      <li>Between your browser and this server (<code>wots.hackjc.org</code>)</li>
+      <li>Between this server and WOTS (proxying your request to their API)</li>
+    </ul>
+    <p>That's it. No third-party services, no external analytics.</p>
+
+    <h2>Clearing your data</h2>
+    <p><b>In your browser:</b> the log-out button in the header clears your token, phone number, and preferences from this browser. That's a one-click operation.</p>
+    <p><b>On our server:</b> the cached copies of your closed reports remain, indexed by an internal WOTS user identifier. There's no self-service delete for this yet — if you'd like your server-side cache purged, <a href="https://github.com/HackJerseyCity/wots/issues">open an issue on the GitHub project</a> and we'll do it. The same reports remain available directly from WOTS itself.</p>
+
+    <h2>Source code</h2>
+    <p>The library that talks to WOTS is open-source at <a href="https://github.com/HackJerseyCity/wots">github.com/HackJerseyCity/wots</a>. It documents everything about how the WOTS interface works, including what fields exist and what data flows across the wire.</p>
+
+    <hr>
+    <p class="muted" style="font-size: 14px;">Built at Hack Jersey City. Questions, corrections, or "hey you're doing this wrong" welcome via the GitHub issues linked above.</p>
+  </main>
+
+  <footer>
+    <a href="/">App</a> · <a href="/stats">Stats</a> · <a href="/about">About</a>
+  </footer>
+</body>
+</html>
