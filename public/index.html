@@ -212,6 +212,22 @@
       height: 44px;
     }
     .btn.ghost:hover { color: var(--text); background: var(--surface-2); }
+    .btn.danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+    }
+    .btn.danger:hover:not(:disabled) {
+      background: var(--danger-bg);
+    }
+    .btn.icon {
+      width: 40px; height: 40px;
+      padding: 0;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border-strong);
+    }
+    .btn.icon:hover { background: var(--surface-2); }
 
     .actions {
       margin-top: 16px;
@@ -458,6 +474,106 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* Submit form */
+    textarea {
+      width: 100%;
+      padding: 10px 12px;
+      font: inherit;
+      font-size: 16px;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      resize: vertical;
+      min-height: 84px;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    textarea:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+    @media (min-width: 520px) {
+      .form-grid { grid-template-columns: 1fr 1fr; }
+      .field-full { grid-column: 1 / -1; }
+    }
+    .field .opt { color: var(--text-subtle); font-weight: normal; }
+    .loc-status {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 12px;
+      background: var(--surface-2);
+      color: var(--text-muted);
+      border-radius: 8px;
+      font-size: 14px;
+      min-height: 40px;
+    }
+    .loc-status.ok { color: var(--text); }
+    .loc-status.err { color: var(--danger); background: var(--danger-bg); }
+    .loc-status button {
+      margin-left: auto;
+      background: transparent;
+      border: 0;
+      color: var(--accent);
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .photo-picker {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .photo-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 14px;
+      background: var(--surface-2);
+      color: var(--text);
+      border-radius: var(--radius-sm);
+      border: 1px dashed var(--border-strong);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 120ms ease, border-color 120ms ease;
+      min-height: 48px;
+    }
+    .photo-btn:hover { background: var(--surface); border-color: var(--accent); }
+    .photo-preview {
+      margin-top: 10px;
+      position: relative;
+      display: inline-block;
+      max-width: 100%;
+    }
+    .photo-preview img {
+      display: block;
+      max-width: 100%;
+      max-height: 260px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+    }
+    .photo-preview button {
+      position: absolute;
+      top: 8px; right: 8px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      border: 0;
+      border-radius: 999px;
+      width: 32px; height: 32px;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 30px;
+    }
+
+    .actions.form-submit {
+      margin-top: 20px;
+    }
+
     /* Detail view */
     .detail-back {
       display: inline-flex;
@@ -537,6 +653,12 @@
     .detail-meta dt { color: var(--text-muted); }
     .detail-meta dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
 
+    .detail-actions {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
     .hidden { display: none !important; }
 
     /* Motion */
@@ -607,7 +729,14 @@
     <section id="step-issues" class="step hidden">
       <div class="list-head">
         <h1>Your issues</h1>
-        <span class="count"><span id="issues-count"></span></span>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span class="count"><span id="issues-count"></span></span>
+          <button id="new-report" class="btn icon" type="button" aria-label="New report" title="New report">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+        </div>
       </div>
       <div class="card">
         <div id="filters" class="filters hidden">
@@ -659,7 +788,87 @@
           <div>Loading report…</div>
         </div>
         <div id="detail-body" class="hidden"></div>
+        <div id="detail-actions" class="detail-actions hidden"></div>
         <div id="detail-error" class="notice error hidden" role="alert"></div>
+      </div>
+    </section>
+
+    <section id="step-submit" class="step hidden">
+      <button id="submit-back" class="detail-back" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+        Issues
+      </button>
+      <div class="card">
+        <div class="step-head">
+          <h1>New report</h1>
+          <p>Tell us what's going on. All fields except type + location are optional.</p>
+        </div>
+        <div id="submit-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="s-group">Category</label>
+              <select id="s-group">
+                <option value="">All categories</option>
+                <option value="VEHICLE">Vehicle</option>
+                <option value="QOL">Quality of life</option>
+                <option value="SAFETY">Safety</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="s-type">Issue type</label>
+              <select id="s-type"><option value="">Loading…</option></select>
+            </div>
+            <div class="field field-full">
+              <label>Location</label>
+              <div id="s-loc-status" class="loc-status">Getting your location…</div>
+            </div>
+            <div class="field field-full">
+              <label for="s-address">Address <span class="opt">(optional)</span></label>
+              <input id="s-address" type="text" placeholder="e.g. 123 Main St" autocomplete="street-address" />
+            </div>
+            <div class="field field-full">
+              <label for="s-comment">Comment <span class="opt">(optional)</span></label>
+              <textarea id="s-comment" rows="3" placeholder="What did you see?"></textarea>
+            </div>
+            <div class="field field-full">
+              <label>Photo <span class="opt">(optional)</span></label>
+              <div class="photo-picker">
+                <label class="photo-btn">
+                  <input type="file" id="s-camera" accept="image/*" capture="environment" hidden />
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                  Take photo
+                </label>
+                <label class="photo-btn">
+                  <input type="file" id="s-lib" accept="image/*" hidden />
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <path d="M21 15l-5-5L5 21" />
+                  </svg>
+                  Choose from library
+                </label>
+              </div>
+              <div id="s-photo-preview" class="photo-preview hidden">
+                <img id="s-photo-img" alt="Selected photo" />
+                <button id="s-photo-remove" type="button" aria-label="Remove photo">×</button>
+              </div>
+            </div>
+          </div>
+          <div class="actions form-submit">
+            <div class="primary-wrap"><button id="s-submit" class="btn primary">Submit report</button></div>
+          </div>
+        </div>
+        <div id="s-submitting" class="empty hidden">
+          <div class="spinner" aria-hidden="true"></div>
+          <div>Submitting your report…</div>
+          <div style="font-size:12px; margin-top:6px;">This can take up to 30 seconds while WOTS checks for nearby duplicates.</div>
+        </div>
+        <div id="s-error" class="notice error hidden" role="alert"></div>
       </div>
     </section>
   </main>
@@ -693,6 +902,13 @@
         case 'SMS_THRESHOLD': return 'Too many attempts — try again later.';
         case 'TIMEOUT': return 'Request timed out. Try again.';
         case 'NETWORK_ERROR': return 'Network error. Try again.';
+        case 'INVALID_REPORT': return 'Missing a required field for this report.';
+        case 'UNKNOWN_TYPE': return 'That issue type isn’t in the catalog.';
+        case 'REDIRECT_911': return 'This kind of incident should go to 911, not WOTS.';
+        case 'DUPLICATES_FOUND': return 'Nearby duplicates were found.';
+        case 'PHOTO_UPLOAD_FAILED': return 'The photo failed to upload. Try again.';
+        case 'CANCEL_FAILED': return 'Cancel failed — the window may have closed.';
+        case 'INVALID_CANCEL_INFO': return 'Cancel info is missing or malformed.';
         default: return (err && err.message) || 'Something went wrong.';
       }
     }
@@ -712,7 +928,7 @@
     }
 
     function showStep(step) {
-      ['step-phone', 'step-code', 'step-issues', 'step-detail'].forEach(hide);
+      ['step-phone', 'step-code', 'step-issues', 'step-detail', 'step-submit'].forEach(hide);
       show(step);
     }
 
@@ -768,6 +984,7 @@
           body: { session, code },
         });
         localStorage.setItem('wots-token', r.token);
+        if (session && session.phone) localStorage.setItem('wots-phone', session.phone);
         sessionStorage.removeItem('wots-session');
         renderWho(session && session.phone);
         await loadIssues(r.token);
@@ -1024,11 +1241,54 @@
       const body = $('detail-body');
       body.innerHTML = '';
       hide('detail-error');
+      hide('detail-actions');
+      $('detail-actions').innerHTML = '';
       // Paint what we already know from the list, immediately.
       renderDetail(body, item, /*full=*/false);
       show('detail-body');
       hide('detail-loading');
       loadDetail(item);
+      maybeShowCancelButton(item && item.id);
+    }
+
+    function maybeShowCancelButton(id) {
+      const wrap = $('detail-actions');
+      wrap.innerHTML = '';
+      const raw = id && localStorage.getItem(`wots-cancel:${id}`);
+      if (!raw) { hide('detail-actions'); return; }
+      let cancelInfo;
+      try { cancelInfo = JSON.parse(raw); } catch (_) { hide('detail-actions'); return; }
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn danger';
+      btn.textContent = 'Cancel this report';
+      btn.addEventListener('click', () => cancelIncident(id, cancelInfo, btn));
+      wrap.appendChild(btn);
+      show('detail-actions');
+    }
+
+    async function cancelIncident(id, cancelInfo, btn) {
+      if (!confirm('Cancel this report? This cannot be undone.')) return;
+      btn.disabled = true;
+      btn.textContent = 'Canceling…';
+      try {
+        const r = await api('/api/cancel', {
+          method: 'POST',
+          token: localStorage.getItem('wots-token'),
+          body: { cancelInfo },
+        });
+        localStorage.removeItem(`wots-cancel:${id}`);
+        cachedItems = null;
+        detailsCache.delete(id);
+        const body = $('detail-body');
+        body.innerHTML = '';
+        renderDetail(body, r.incident || { id }, /*full=*/true);
+        hide('detail-actions');
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Cancel this report';
+        setNotice('detail-error', friendlyError(err));
+      }
     }
 
     async function loadDetail(item) {
@@ -1180,6 +1440,7 @@
 
     function logout() {
       localStorage.removeItem('wots-token');
+      localStorage.removeItem('wots-phone');
       sessionStorage.removeItem('wots-session');
       session = null;
       $('phone').value = '';
@@ -1197,6 +1458,220 @@
       showStep('step-issues');
       // list is still rendered from the last loadIssues; no refetch needed
     });
+
+    // ---- Submit flow --------------------------------------------------------
+
+    let typesCatalog = null;      // { CODE: {typeName, group, subgroup, redirect911, ...} }
+    let submitLocation = null;    // { lat, lon, accuracy }
+    let pendingImage = null;      // { base64, dataUrl } after resize
+
+    const GROUP_LABEL = { VEHICLE: 'Vehicle', QOL: 'Quality of life', SAFETY: 'Safety' };
+
+    async function loadTypesOnce() {
+      if (typesCatalog) return typesCatalog;
+      const r = await api('/api/types');
+      typesCatalog = r.types || {};
+      return typesCatalog;
+    }
+
+    function buildTypeOptions(groupFilter) {
+      const sel = $('s-type');
+      sel.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = ''; placeholder.textContent = 'Choose an issue type…';
+      sel.appendChild(placeholder);
+      if (!typesCatalog) return;
+      const buckets = new Map(); // "Vehicle — Parking" → [items]
+      for (const [code, t] of Object.entries(typesCatalog)) {
+        if (t.redirect911) continue;
+        if (groupFilter && t.group !== groupFilter) continue;
+        const groupLabel = GROUP_LABEL[t.group] || t.group;
+        const subLabel = (t.subgroup || '').replace(/[:\s]+$/, '').trim();
+        const key = subLabel ? `${groupLabel} — ${subLabel}` : groupLabel;
+        if (!buckets.has(key)) buckets.set(key, []);
+        buckets.get(key).push({ code, typeName: t.typeName });
+      }
+      const sortedKeys = [...buckets.keys()].sort();
+      for (const key of sortedKeys) {
+        const og = document.createElement('optgroup');
+        og.label = key;
+        for (const it of buckets.get(key).sort((a, b) => a.typeName.localeCompare(b.typeName))) {
+          const opt = document.createElement('option');
+          opt.value = it.code;
+          opt.textContent = it.typeName;
+          og.appendChild(opt);
+        }
+        sel.appendChild(og);
+      }
+    }
+
+    function setLocStatus(kind, text, retryable) {
+      const el = $('s-loc-status');
+      el.className = 'loc-status ' + (kind || '');
+      el.innerHTML = '';
+      const span = document.createElement('span');
+      span.textContent = text;
+      el.appendChild(span);
+      if (retryable) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = 'Retry';
+        btn.addEventListener('click', requestLocation);
+        el.appendChild(btn);
+      }
+    }
+
+    function requestLocation() {
+      submitLocation = null;
+      if (!navigator.geolocation) {
+        setLocStatus('err', 'Geolocation is not available in this browser.', false);
+        return;
+      }
+      setLocStatus('', 'Getting your location…', false);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          submitLocation = {
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+          };
+          const acc = Math.round(pos.coords.accuracy || 0);
+          setLocStatus('ok', `Located ${acc ? `(±${acc} m)` : ''}`.trim(), true);
+        },
+        (err) => {
+          const msg = err.code === 1
+            ? 'Location permission denied. Enable it in your browser to submit a report.'
+            : 'Could not get your location.';
+          setLocStatus('err', msg, true);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+      );
+    }
+
+    async function openSubmit() {
+      resetSubmitForm();
+      showStep('step-submit');
+      window.scrollTo(0, 0);
+      try {
+        await loadTypesOnce();
+        buildTypeOptions($('s-group').value);
+      } catch (err) {
+        setNotice('s-error', friendlyError(err));
+      }
+      requestLocation();
+    }
+
+    function resetSubmitForm() {
+      $('s-group').value = '';
+      $('s-type').innerHTML = '<option value="">Loading…</option>';
+      $('s-address').value = '';
+      $('s-comment').value = '';
+      $('s-camera').value = '';
+      $('s-lib').value = '';
+      pendingImage = null;
+      hide('s-photo-preview');
+      $('s-photo-img').removeAttribute('src');
+      hide('s-error');
+      hide('s-submitting');
+      show('submit-form');
+    }
+
+    async function handlePhoto(file) {
+      if (!file || !file.type || !file.type.startsWith('image/')) return;
+      try {
+        const blob = await resizeImage(file, 1600, 0.85);
+        const base64 = await blobToBase64(blob);
+        pendingImage = { base64, dataUrl: `data:image/jpeg;base64,${base64}` };
+        const img = $('s-photo-img');
+        img.src = pendingImage.dataUrl;
+        show('s-photo-preview');
+      } catch (err) {
+        setNotice('s-error', 'Could not read that image. Try another.');
+      }
+    }
+
+    async function resizeImage(file, maxDim, quality) {
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+      const w = Math.max(1, Math.round(bmp.width * scale));
+      const h = Math.max(1, Math.round(bmp.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
+      bmp.close && bmp.close();
+      return await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+    }
+
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result).split(',')[1] || '');
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+    }
+
+    async function submitReport() {
+      hide('s-error');
+      const type = $('s-type').value;
+      if (!type) return setNotice('s-error', 'Choose an issue type.');
+      if (!submitLocation) return setNotice('s-error', 'Location is required — enable geolocation and retry.');
+      const phone = localStorage.getItem('wots-phone');
+      if (!phone) return setNotice('s-error', 'No phone on file. Log out and log in again.');
+
+      const payload = {
+        type,
+        lat: submitLocation.lat,
+        lon: submitLocation.lon,
+        phone,
+        address: $('s-address').value.trim() || undefined,
+        comment: $('s-comment').value.trim() || undefined,
+        imageBase64: pendingImage && pendingImage.base64,
+      };
+
+      hide('submit-form');
+      show('s-submitting');
+      try {
+        const r = await api('/api/submit', {
+          method: 'POST',
+          token: localStorage.getItem('wots-token'),
+          body: payload,
+        });
+        if (r.cancelInfo && r.incidentId) {
+          localStorage.setItem(`wots-cancel:${r.incidentId}`, JSON.stringify(r.cancelInfo));
+        }
+        // Invalidate list so returning to it refetches.
+        cachedItems = null;
+        detailsCache.delete(r.incidentId);
+        resetSubmitForm();
+        openDetail({ id: r.incidentId, typeName: (typesCatalog[type] && typesCatalog[type].typeName) || undefined });
+      } catch (err) {
+        hide('s-submitting');
+        show('submit-form');
+        setNotice('s-error', friendlyError(err));
+      }
+    }
+
+    $('new-report').addEventListener('click', openSubmit);
+    $('submit-back').addEventListener('click', () => {
+      if (!cachedItems) {
+        const token = localStorage.getItem('wots-token');
+        if (token) loadIssues(token); else showStep('step-phone');
+      } else {
+        showStep('step-issues');
+      }
+    });
+    $('s-group').addEventListener('change', () => buildTypeOptions($('s-group').value));
+    $('s-camera').addEventListener('change', (e) => handlePhoto(e.target.files && e.target.files[0]));
+    $('s-lib').addEventListener('change', (e) => handlePhoto(e.target.files && e.target.files[0]));
+    $('s-photo-remove').addEventListener('click', () => {
+      pendingImage = null;
+      $('s-camera').value = '';
+      $('s-lib').value = '';
+      hide('s-photo-preview');
+      $('s-photo-img').removeAttribute('src');
+    });
+    $('s-submit').addEventListener('click', submitReport);
     ['filter-search', 'filter-status', 'filter-category', 'filter-resolution'].forEach((id) => {
       const el = $(id);
       el.addEventListener('input', applyFilters);
