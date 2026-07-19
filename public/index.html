@@ -440,6 +440,98 @@
     /* Table header — hidden on mobile, visible on desktop. */
     .list-header { display: none; }
 
+    /* View mode toggle in list-head */
+    .view-toggle {
+      display: inline-flex;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .view-toggle button {
+      appearance: none; -webkit-appearance: none; border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 8px 12px;
+      cursor: pointer;
+      font: inherit;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: color 120ms ease, background 120ms ease;
+    }
+    .view-toggle button + button { border-left: 1px solid var(--border); }
+    .view-toggle button:hover { color: var(--text); }
+    .view-toggle button.active { color: var(--accent); background: var(--surface-2); }
+    .view-toggle button:focus-visible { outline: none; box-shadow: var(--focus); }
+
+    /* Grid view */
+    ul.incidents.grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+    }
+    @media (min-width: 900px) {
+      ul.incidents.grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+    }
+    ul.incidents.grid li.tile {
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--surface);
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    ul.incidents.grid li.tile:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-2);
+      border-color: var(--border-strong);
+    }
+    ul.incidents.grid li.tile:focus-visible { outline: none; box-shadow: var(--focus); }
+    .tile-photo {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      background: var(--surface-2);
+      overflow: hidden;
+    }
+    .tile-photo img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .tile-photo.empty {
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-subtle);
+      background: linear-gradient(135deg, var(--surface-2), var(--surface));
+    }
+    .tile-photo .tile-status {
+      position: absolute;
+      top: 8px; right: 8px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      border-radius: 999px;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .tile-caption {
+      padding: 10px 12px 12px;
+      display: flex; flex-direction: column; gap: 2px;
+      min-height: 62px;
+    }
+    .tile-title {
+      font-weight: 500; font-size: 14px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .tile-address {
+      color: var(--text-muted); font-size: 12px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
     /* Desktop: widen the issues step and flip rows to a real table.
        Only issues; other steps stay narrow. */
     @media (min-width: 900px) {
@@ -800,6 +892,23 @@
       <div class="list-head">
         <h1>Your issues</h1>
         <div style="display:flex; align-items:center; gap:12px;">
+          <div class="view-toggle" role="group" aria-label="View mode">
+            <button type="button" id="view-table" data-view="table" class="active" aria-pressed="true" title="Table view">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+            <button type="button" id="view-grid" data-view="grid" aria-pressed="false" title="Grid view">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+              </svg>
+            </button>
+          </div>
           <span class="count"><span id="issues-count"></span></span>
           <button id="new-report" class="btn icon" type="button" aria-label="New report" title="New report">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -963,8 +1072,9 @@
     let session = null;
     let cachedItems = null;
     const detailsCache = new Map(); // id → full incident
-    const itemNodes = new Map();    // id → { li, body }
+    const itemNodes = new Map();    // id → { li, mode, cells? / grid? }
     let detailsInFlight = false;
+    let viewMode = (localStorage.getItem('wots-view') === 'grid') ? 'grid' : 'table';
 
     function setNotice(elId, msg, kind) {
       const el = $(elId);
@@ -1118,7 +1228,7 @@
         renderIncidentList(items);
         buildFilterOptions(items);
         show('filters');
-        show('list-header');
+        if (viewMode === 'table') show('list-header');
         show('issues');
         applyFilters();
         // Background fetch details to reveal resolutions
@@ -1145,56 +1255,108 @@
 
     function renderIncidentList(items) {
       const ul = $('issues');
+      ul.className = 'incidents' + (viewMode === 'grid' ? ' grid' : '');
       ul.innerHTML = '';
+      itemNodes.clear();
+      // Header row is table-only.
+      $('list-header').classList.toggle('hidden', viewMode !== 'table');
       for (const it of items) {
-        const li = document.createElement('li');
-        li.className = 'row';
-        const clickable = !!it.id;
-        if (clickable) {
-          li.classList.add('clickable');
-          li.tabIndex = 0;
-          li.setAttribute('role', 'button');
-          li.setAttribute('aria-label', `View report ${it.typeName || it.primaryText || it.id}`);
-          li.addEventListener('click', () => openDetail(it));
-          li.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(it); }
-          });
-        }
-
-        const cType = mkCell('col-type', it.typeName || `Report ${it.id || ''}`);
-        const cAddr = mkCell('col-addr', it.address || '');
-        const cStatus = document.createElement('div');
-        cStatus.className = 'col-status';
-        if (it.primaryText) {
-          const s = document.createElement('span');
-          s.className = 'status ' + statusClass(it.primaryText);
-          s.textContent = it.primaryText;
-          cStatus.appendChild(s);
-        }
-        const cReported   = mkCell('col-reported',   '');
-        const cResolved   = mkCell('col-resolved',   '');
-        const cOfficer    = mkCell('col-officer',    '');
-        const cResolution = mkCell('col-resolution', '');
-
-        li.appendChild(cType);
-        li.appendChild(cAddr);
-        li.appendChild(cStatus);
-        li.appendChild(cReported);
-        li.appendChild(cResolved);
-        li.appendChild(cOfficer);
-        li.appendChild(cResolution);
-
-        if (clickable) li.appendChild(mkChev());
-
-        if (it.id) {
-          itemNodes.set(it.id, {
-            li,
-            cells: { reported: cReported, resolved: cResolved, officer: cOfficer, resolution: cResolution },
-          });
-          if (detailsCache.has(it.id)) paintDetailOnItem(it.id, detailsCache.get(it.id));
-        }
+        const li = (viewMode === 'grid') ? renderGridTile(it) : renderTableRow(it);
         ul.appendChild(li);
+        if (it.id && detailsCache.has(it.id)) paintDetailOnItem(it.id, detailsCache.get(it.id));
       }
+    }
+
+    function attachClickable(li, it, label) {
+      if (!it.id) return;
+      li.classList.add('clickable');
+      li.tabIndex = 0;
+      li.setAttribute('role', 'button');
+      li.setAttribute('aria-label', `View report ${label}`);
+      li.addEventListener('click', () => openDetail(it));
+      li.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(it); }
+      });
+    }
+
+    function renderTableRow(it) {
+      const li = document.createElement('li');
+      li.className = 'row';
+      attachClickable(li, it, it.typeName || it.primaryText || it.id);
+
+      const cType = mkCell('col-type', it.typeName || `Report ${it.id || ''}`);
+      const cAddr = mkCell('col-addr', it.address || '');
+      const cStatus = document.createElement('div');
+      cStatus.className = 'col-status';
+      if (it.primaryText) {
+        const s = document.createElement('span');
+        s.className = 'status ' + statusClass(it.primaryText);
+        s.textContent = it.primaryText;
+        cStatus.appendChild(s);
+      }
+      const cReported   = mkCell('col-reported',   '');
+      const cResolved   = mkCell('col-resolved',   '');
+      const cOfficer    = mkCell('col-officer',    '');
+      const cResolution = mkCell('col-resolution', '');
+
+      li.append(cType, cAddr, cStatus, cReported, cResolved, cOfficer, cResolution);
+      if (it.id) li.appendChild(mkChev());
+
+      if (it.id) {
+        itemNodes.set(it.id, {
+          li,
+          mode: 'table',
+          cells: { reported: cReported, resolved: cResolved, officer: cOfficer, resolution: cResolution },
+        });
+      }
+      return li;
+    }
+
+    function renderGridTile(it) {
+      const li = document.createElement('li');
+      li.className = 'tile';
+      attachClickable(li, it, it.typeName || it.primaryText || it.id);
+
+      const photo = document.createElement('div');
+      photo.className = 'tile-photo empty';
+      const noPhoto = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      noPhoto.setAttribute('width', '28'); noPhoto.setAttribute('height', '28');
+      noPhoto.setAttribute('viewBox', '0 0 24 24');
+      noPhoto.setAttribute('fill', 'none');
+      noPhoto.setAttribute('stroke', 'currentColor');
+      noPhoto.setAttribute('stroke-width', '1.5');
+      noPhoto.setAttribute('stroke-linecap', 'round');
+      noPhoto.setAttribute('stroke-linejoin', 'round');
+      noPhoto.setAttribute('aria-hidden', 'true');
+      noPhoto.innerHTML = '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>';
+      photo.appendChild(noPhoto);
+
+      if (it.primaryText) {
+        const s = document.createElement('span');
+        s.className = 'tile-status';
+        s.textContent = it.primaryText;
+        photo.appendChild(s);
+      }
+
+      const caption = document.createElement('div');
+      caption.className = 'tile-caption';
+      const title = document.createElement('div');
+      title.className = 'tile-title';
+      title.textContent = it.typeName || `Report ${it.id || ''}`;
+      caption.appendChild(title);
+      if (it.address) {
+        const addr = document.createElement('div');
+        addr.className = 'tile-address';
+        addr.textContent = it.address;
+        caption.appendChild(addr);
+      }
+
+      li.append(photo, caption);
+
+      if (it.id) {
+        itemNodes.set(it.id, { li, mode: 'grid', photoEl: photo });
+      }
+      return li;
     }
 
     function mkCell(cls, text) {
@@ -1233,26 +1395,66 @@
     function paintDetailOnItem(id, full) {
       const node = itemNodes.get(id);
       if (!node || !full) return;
-      const c = node.cells;
+
+      // Stash resolution text on the li for filters regardless of view mode.
       const resText = (typeof full.publicResolution === 'string' && full.publicResolution.trim()) || '';
-      if (resText) {
-        c.resolution.textContent = resText;
-        node.li.dataset.resolution = resText;
+      if (resText) node.li.dataset.resolution = resText;
+
+      if (node.mode === 'grid') {
+        const urls = (full.userContent && Array.isArray(full.userContent.imageUrls))
+          ? full.userContent.imageUrls : [];
+        if (urls.length && node.photoEl.classList.contains('empty')) {
+          node.photoEl.classList.remove('empty');
+          // Clear the placeholder svg but keep the status chip if present.
+          const chip = node.photoEl.querySelector('.tile-status');
+          node.photoEl.innerHTML = '';
+          const img = document.createElement('img');
+          img.loading = 'lazy';
+          img.alt = '';
+          img.src = urls[0];
+          img.onerror = () => {
+            node.photoEl.classList.add('empty');
+            node.photoEl.replaceChildren();
+            if (chip) node.photoEl.appendChild(chip);
+          };
+          node.photoEl.appendChild(img);
+          if (chip) node.photoEl.appendChild(chip);
+        }
+        return;
       }
+
+      // Table mode
+      const c = node.cells;
+      if (resText) c.resolution.textContent = resText;
       const rep = fmtDay(full.receivedAt);
       if (rep) c.reported.textContent = rep;
       const resTs = full.resolvedAt || full.canceledAt;
       if (resTs) {
         c.resolved.textContent = fmtDay(resTs);
-      } else {
-        // Detail loaded but no resolution date — show em-dash so column doesn't look "still loading".
-        if (!c.resolved.textContent) {
-          c.resolved.textContent = '—';
-          c.resolved.classList.add('col-empty');
-        }
+      } else if (!c.resolved.textContent) {
+        c.resolved.textContent = '—';
+        c.resolved.classList.add('col-empty');
       }
       const officer = (full.props && full.props.OFFICER_LABEL) || '';
       if (officer) c.officer.textContent = officer;
+    }
+
+    function setViewMode(mode, opts) {
+      if (mode !== 'grid' && mode !== 'table') return;
+      if (viewMode === mode && !(opts && opts.force)) return;
+      viewMode = mode;
+      localStorage.setItem('wots-view', mode);
+      for (const b of document.querySelectorAll('.view-toggle button')) {
+        const active = b.dataset.view === mode;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-pressed', active ? 'true' : 'false');
+      }
+      if (cachedItems) {
+        renderIncidentList(cachedItems);
+        applyFilters();
+      } else {
+        $('list-header').classList.toggle('hidden', viewMode !== 'table');
+      }
     }
 
     function buildFilterOptions(items) {
@@ -1310,7 +1512,7 @@
         : `${visible} of ${total}`;
       $('no-matches').classList.toggle('hidden', visible > 0);
       $('issues').classList.toggle('hidden', visible === 0);
-      $('list-header').classList.toggle('hidden', visible === 0);
+      $('list-header').classList.toggle('hidden', visible === 0 || viewMode !== 'table');
     }
 
     async function fetchAllDetails(items, token) {
@@ -1816,6 +2018,10 @@
       $('s-photo-img').removeAttribute('src');
     });
     $('s-submit').addEventListener('click', submitReport);
+    $('view-table').addEventListener('click', () => setViewMode('table'));
+    $('view-grid').addEventListener('click', () => setViewMode('grid'));
+    // Reflect persisted mode on the toggle at boot (before any list renders).
+    setViewMode(viewMode, { force: true });
     ['filter-search', 'filter-status', 'filter-category', 'filter-resolution-status', 'filter-resolution-text'].forEach((id) => {
       const el = $(id);
       el.addEventListener('input', applyFilters);
