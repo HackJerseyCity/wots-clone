@@ -1,0 +1,14 @@
+node_modules
+wots-vendor/node_modules
+wots-vendor/.git
+wots-vendor/spike
+wots-vendor/test
+.git
+.gitignore
+.gitmodules
+.kamal
+config
+README.md
+Dockerfile
+.dockerignore
+*.log

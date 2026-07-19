@@ -11,6 +11,6 @@
     "node": ">=18"
   },
   "dependencies": {
-    "wots": "file:../wots"
+    "wots": "file:./wots-vendor"
   }
 }

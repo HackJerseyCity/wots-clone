@@ -1,0 +1,3 @@
+[submodule "wots-vendor"]
+	path = wots-vendor
+	url = ../wots

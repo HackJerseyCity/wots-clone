@@ -1,0 +1,28 @@
+service: wots-clone
+
+image: aosik/wots-clone
+
+servers:
+  web:
+    - 89.167.56.225
+
+proxy:
+  # SSL is terminated by Cloudflare (orange-cloud on *.hackjc.org).
+  # Kamal-proxy serves plain HTTP on :80; CF fronts it with HTTPS.
+  ssl: false
+  host: wots.hackjc.org
+  app_port: 3000
+  healthcheck:
+    path: /
+    interval: 5
+
+registry:
+  server: docker.io
+  username: aosik
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+builder:
+  arch: amd64
+
+# The wots-clone container needs no runtime env; PORT/NODE_ENV are baked in.
