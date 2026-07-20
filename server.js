@@ -17,6 +17,18 @@ const STATS_HTML = fs.readFileSync(path.join(__dirname, 'public', 'stats.html'))
 const ABOUT_HTML = fs.readFileSync(path.join(__dirname, 'public', 'about.html'));
 const TERMS_HTML = fs.readFileSync(path.join(__dirname, 'public', 'terms.html'));
 
+// Preload static images (splash screenshots) into memory. Small set (~1 MB
+// total), so avoiding per-request disk reads is trivial.
+const IMG_CACHE = new Map();
+const IMG_DIR = path.join(__dirname, 'public', 'img');
+if (fs.existsSync(IMG_DIR)) {
+  for (const name of fs.readdirSync(IMG_DIR)) {
+    const full = path.join(IMG_DIR, name);
+    if (fs.statSync(full).isFile()) IMG_CACHE.set(name, fs.readFileSync(full));
+  }
+}
+const IMG_TYPES = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.svg': 'image/svg+xml' };
+
 function send(res, status, body, headers = {}) {
   res.writeHead(status, { 'content-type': 'application/json', ...headers });
   res.end(JSON.stringify(body));
@@ -72,6 +84,21 @@ async function handle(req, res) {
   if (req.method === 'GET' && req.url === '/terms') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(TERMS_HTML);
+    return;
+  }
+
+  if (req.method === 'GET' && req.url.startsWith('/img/')) {
+    const name = req.url.slice('/img/'.length);
+    // Prevent path traversal — allow only basenames the cache knows about.
+    if (name.includes('/') || name.includes('..') || !IMG_CACHE.has(name)) {
+      return send(res, 404, { error: 'not found' });
+    }
+    const type = IMG_TYPES[path.extname(name).toLowerCase()] || 'application/octet-stream';
+    res.writeHead(200, {
+      'content-type': type,
+      'cache-control': 'public, max-age=604800, immutable',
+    });
+    res.end(IMG_CACHE.get(name));
     return;
   }
 
