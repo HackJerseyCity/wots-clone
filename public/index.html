@@ -1190,16 +1190,7 @@
         </div>
         <div id="submit-form">
           <div class="form-grid">
-            <div class="field">
-              <label for="s-group">Category</label>
-              <select id="s-group">
-                <option value="">All categories</option>
-                <option value="VEHICLE">Vehicle</option>
-                <option value="QOL">Quality of life</option>
-                <option value="SAFETY">Safety</option>
-              </select>
-            </div>
-            <div class="field">
+            <div class="field field-full">
               <label for="s-type">Issue type</label>
               <select id="s-type"><option value="">Loading…</option></select>
             </div>
@@ -2072,7 +2063,9 @@
     let submitLocation = null;    // { lat, lon, accuracy }
     let pendingImage = null;      // { base64, dataUrl } after resize
 
-    const GROUP_LABEL = { VEHICLE: 'Vehicle', QOL: 'Quality of life', SAFETY: 'Safety' };
+    // WOTS accepts other groups (QOL, SAFETY) too, but only VEHICLE flows
+    // through end-to-end reliably right now — restrict the picker to those.
+    const SUBMITTABLE_GROUP = 'VEHICLE';
 
     async function loadTypesOnce() {
       if (typesCatalog) return typesCatalog;
@@ -2081,20 +2074,18 @@
       return typesCatalog;
     }
 
-    function buildTypeOptions(groupFilter) {
+    function buildTypeOptions() {
       const sel = $('s-type');
       sel.innerHTML = '';
       const placeholder = document.createElement('option');
       placeholder.value = ''; placeholder.textContent = 'Choose an issue type…';
       sel.appendChild(placeholder);
       if (!typesCatalog) return;
-      const buckets = new Map(); // "Vehicle — Parking" → [items]
+      const buckets = new Map(); // subgroup label → [items]
       for (const [code, t] of Object.entries(typesCatalog)) {
         if (t.redirect911) continue;
-        if (groupFilter && t.group !== groupFilter) continue;
-        const groupLabel = GROUP_LABEL[t.group] || t.group;
-        const subLabel = (t.subgroup || '').replace(/[:\s]+$/, '').trim();
-        const key = subLabel ? `${groupLabel} — ${subLabel}` : groupLabel;
+        if (t.group !== SUBMITTABLE_GROUP) continue;
+        const key = (t.subgroup || '').replace(/[:\s]+$/, '').trim() || 'Other';
         if (!buckets.has(key)) buckets.set(key, []);
         buckets.get(key).push({ code, typeName: t.typeName });
       }
@@ -2161,7 +2152,7 @@
       window.scrollTo(0, 0);
       try {
         await loadTypesOnce();
-        buildTypeOptions($('s-group').value);
+        buildTypeOptions();
       } catch (err) {
         setNotice('s-error', friendlyError(err));
       }
@@ -2169,7 +2160,6 @@
     }
 
     function resetSubmitForm() {
-      $('s-group').value = '';
       $('s-type').innerHTML = '<option value="">Loading…</option>';
       $('s-address').value = '';
       $('s-comment').value = '';
@@ -2272,7 +2262,6 @@
         showStep('step-issues');
       }
     });
-    $('s-group').addEventListener('change', () => buildTypeOptions($('s-group').value));
     $('s-camera').addEventListener('change', (e) => handlePhoto(e.target.files && e.target.files[0]));
     $('s-lib').addEventListener('change', (e) => handlePhoto(e.target.files && e.target.files[0]));
     $('s-photo-remove').addEventListener('click', () => {
