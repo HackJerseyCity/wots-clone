@@ -639,7 +639,7 @@
     /* Submit form */
     textarea {
       width: 100%;
-      padding: 10px 12px;
+      padding: 12px 14px;
       font: inherit;
       font-size: 16px;
       color: var(--text);
@@ -647,11 +647,16 @@
       border: 1px solid var(--border-strong);
       border-radius: var(--radius-sm);
       resize: vertical;
-      min-height: 84px;
+      min-height: 92px;
       -webkit-appearance: none;
       appearance: none;
+      transition: border-color 120ms ease, box-shadow 120ms ease;
     }
+    textarea:hover { border-color: var(--text-muted); }
     textarea:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
+    textarea::placeholder { color: var(--text-subtle); }
+
+    /* Form grid stays for structure inside sections. */
     .form-grid {
       display: grid;
       grid-template-columns: 1fr;
@@ -661,18 +666,127 @@
       .form-grid { grid-template-columns: 1fr 1fr; }
       .field-full { grid-column: 1 / -1; }
     }
-    .field .opt { color: var(--text-subtle); font-weight: normal; }
+    .field .opt {
+      color: var(--text-subtle);
+      font-weight: normal;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-left: 6px;
+    }
+
+    /* Numbered section grouping */
+    .s-section {
+      padding: 22px 0;
+      border-top: 1px solid var(--border);
+    }
+    .s-section:first-child { border-top: 0; padding-top: 4px; }
+    .s-section:last-child  { padding-bottom: 4px; }
+    .s-section-head {
+      display: flex; align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .s-num {
+      width: 22px; height: 22px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent) 14%, transparent);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+    }
+    .s-section-head h3 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.005em;
+    }
+    .s-section-head .opt {
+      color: var(--text-subtle);
+      font-weight: normal;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-left: 6px;
+    }
+
+    /* Custom-styled native select (matches filter selects) */
+    select.s-select {
+      width: 100%;
+      height: 48px;
+      padding: 0 40px 0 14px;
+      font: inherit;
+      font-size: 16px;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      -webkit-appearance: none;
+      appearance: none;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='10' viewBox='0 0 14 10' fill='none' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M1 2l6 6 6-6'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      transition: border-color 120ms ease, box-shadow 120ms ease;
+    }
+    @media (prefers-color-scheme: dark) {
+      select.s-select {
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='10' viewBox='0 0 14 10' fill='none' stroke='%23a1a1aa' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M1 2l6 6 6-6'/></svg>");
+      }
+    }
+    select.s-select:hover { border-color: var(--text-muted); }
+    select.s-select:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
+
+    /* Location status */
     .loc-status {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 8px 12px;
+      display: flex; align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
       background: var(--surface-2);
       color: var(--text-muted);
-      border-radius: 8px;
+      border-radius: 10px;
       font-size: 14px;
-      min-height: 40px;
+      min-height: 48px;
+      margin-bottom: 14px;
+      transition: background 200ms ease, color 200ms ease;
     }
-    .loc-status.ok { color: var(--text); }
-    .loc-status.err { color: var(--danger); background: var(--danger-bg); }
+    .loc-status::before {
+      content: "";
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--text-subtle);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-subtle) 22%, transparent);
+      flex-shrink: 0;
+      transition: background 200ms ease, box-shadow 200ms ease;
+    }
+    .loc-status:not(.ok):not(.err)::before {
+      background: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+      animation: loc-pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes loc-pulse {
+      0%, 100% { opacity: 0.4; transform: scale(0.9); }
+      50%      { opacity: 1;   transform: scale(1.15); }
+    }
+    .loc-status.ok {
+      color: var(--text);
+      background: color-mix(in srgb, #16a34a 9%, var(--surface-2));
+    }
+    .loc-status.ok::before {
+      background: #16a34a;
+      box-shadow: 0 0 0 3px color-mix(in srgb, #16a34a 22%, transparent);
+    }
+    .loc-status.err {
+      color: var(--danger);
+      background: var(--danger-bg);
+    }
+    .loc-status.err::before {
+      background: var(--danger);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 22%, transparent);
+    }
     .loc-status button {
       margin-left: auto;
       background: transparent;
@@ -680,61 +794,104 @@
       color: var(--accent);
       font: inherit;
       font-size: 13px;
+      font-weight: 500;
       cursor: pointer;
-      padding: 0;
+      padding: 6px 10px;
+      border-radius: 6px;
+      transition: background 120ms ease;
     }
+    .loc-status button:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 
+    /* Photo picker */
     .photo-picker {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      gap: 10px;
     }
+    @media (max-width: 380px) { .photo-picker { grid-template-columns: 1fr; } }
     .photo-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 12px 14px;
-      background: var(--surface-2);
-      color: var(--text);
-      border-radius: var(--radius-sm);
+      display: flex;
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 20px 14px;
+      min-height: 128px;
+      background: var(--surface);
       border: 1px dashed var(--border-strong);
+      border-radius: var(--radius);
       cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
-      transition: background 120ms ease, border-color 120ms ease;
-      min-height: 48px;
+      transition: background 140ms ease, border-color 140ms ease, transform 100ms ease;
+      color: var(--text);
+      gap: 6px;
+      text-align: center;
+      -webkit-tap-highlight-color: transparent;
     }
-    .photo-btn:hover { background: var(--surface); border-color: var(--accent); }
+    .photo-btn:hover {
+      background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+    .photo-btn:active { transform: none; }
+    .photo-icon {
+      width: 30px; height: 30px;
+      color: var(--text-muted);
+      transition: color 140ms ease, transform 140ms ease;
+      margin-bottom: 4px;
+    }
+    .photo-btn:hover .photo-icon {
+      color: var(--accent);
+      transform: scale(1.08);
+    }
+    .photo-btn-title { font-size: 14px; font-weight: 500; }
+    .photo-btn-sub   { font-size: 12px; color: var(--text-muted); }
+
     .photo-preview {
-      margin-top: 10px;
+      margin-top: 14px;
       position: relative;
       display: inline-block;
       max-width: 100%;
+      animation: photo-in 240ms ease-out both;
+    }
+    @keyframes photo-in {
+      from { opacity: 0; transform: scale(0.97); }
+      to   { opacity: 1; transform: none; }
     }
     .photo-preview img {
       display: block;
       max-width: 100%;
-      max-height: 260px;
-      border-radius: var(--radius-sm);
+      max-height: 320px;
+      border-radius: var(--radius);
       background: var(--surface-2);
+      box-shadow: var(--shadow-2);
     }
     .photo-preview button {
       position: absolute;
-      top: 8px; right: 8px;
-      background: rgba(0,0,0,0.6);
+      top: 10px; right: 10px;
+      background: rgba(0, 0, 0, 0.65);
       color: #fff;
       border: 0;
       border-radius: 999px;
       width: 32px; height: 32px;
+      display: inline-flex; align-items: center; justify-content: center;
       cursor: pointer;
-      font-size: 16px;
-      line-height: 30px;
+      transition: background 120ms ease, transform 100ms ease;
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
     }
+    .photo-preview button:hover { background: rgba(0, 0, 0, 0.85); transform: scale(1.06); }
 
     .actions.form-submit {
       margin-top: 20px;
     }
+    .actions.form-submit .btn.primary {
+      height: 52px;
+      min-width: 200px;
+      font-size: 15px;
+      border-radius: 12px;
+    }
+    .actions.form-submit .btn.primary svg {
+      transition: transform 120ms ease;
+    }
+    .actions.form-submit .btn.primary:hover:not(:disabled) svg { transform: translateX(2px); }
 
     /* Detail view */
     .detail-back {
@@ -1186,55 +1343,81 @@
       <div class="card">
         <div class="step-head">
           <h1>New report</h1>
-          <p>Tell us what's going on. All fields except type + location are optional.</p>
+          <p>Only the issue type and your location are required.</p>
         </div>
         <div id="submit-form">
-          <div class="form-grid">
+          <div class="s-section">
+            <div class="s-section-head">
+              <span class="s-num" aria-hidden="true">1</span>
+              <h3>What happened?</h3>
+            </div>
             <div class="field field-full">
               <label for="s-type">Issue type</label>
-              <select id="s-type"><option value="">Loading…</option></select>
+              <select id="s-type" class="s-select"><option value="">Loading…</option></select>
             </div>
-            <div class="field field-full">
-              <label>Location</label>
-              <div id="s-loc-status" class="loc-status">Getting your location…</div>
-            </div>
-            <div class="field field-full">
-              <label for="s-address">Address <span class="opt">(optional)</span></label>
-              <input id="s-address" type="text" placeholder="e.g. 123 Main St" autocomplete="street-address" />
-            </div>
-            <div class="field field-full">
-              <label for="s-comment">Comment <span class="opt">(optional)</span></label>
+            <div class="field field-full" style="margin-top: 14px;">
+              <label for="s-comment">Add a note <span class="opt">optional</span></label>
               <textarea id="s-comment" rows="3" placeholder="What did you see?"></textarea>
             </div>
+          </div>
+
+          <div class="s-section">
+            <div class="s-section-head">
+              <span class="s-num" aria-hidden="true">2</span>
+              <h3>Where?</h3>
+            </div>
+            <div id="s-loc-status" class="loc-status">Getting your location…</div>
             <div class="field field-full">
-              <label>Photo <span class="opt">(optional)</span></label>
-              <div class="photo-picker">
-                <label class="photo-btn">
-                  <input type="file" id="s-camera" accept="image/*" capture="environment" hidden />
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                    <circle cx="12" cy="13" r="4" />
-                  </svg>
-                  Take photo
-                </label>
-                <label class="photo-btn">
-                  <input type="file" id="s-lib" accept="image/*" hidden />
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                    <circle cx="8.5" cy="8.5" r="1.5" />
-                    <path d="M21 15l-5-5L5 21" />
-                  </svg>
-                  Choose from library
-                </label>
-              </div>
-              <div id="s-photo-preview" class="photo-preview hidden">
-                <img id="s-photo-img" alt="Selected photo" />
-                <button id="s-photo-remove" type="button" aria-label="Remove photo">×</button>
-              </div>
+              <label for="s-address">Refine the address <span class="opt">optional</span></label>
+              <input id="s-address" type="text" placeholder="e.g. 123 Main St" autocomplete="street-address" />
             </div>
           </div>
+
+          <div class="s-section">
+            <div class="s-section-head">
+              <span class="s-num" aria-hidden="true">3</span>
+              <h3>Show us <span class="opt">optional</span></h3>
+            </div>
+            <div class="photo-picker">
+              <label class="photo-btn">
+                <input type="file" id="s-camera" accept="image/*" capture="environment" hidden />
+                <svg class="photo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+                <span class="photo-btn-title">Take a photo</span>
+                <span class="photo-btn-sub">Uses your camera</span>
+              </label>
+              <label class="photo-btn">
+                <input type="file" id="s-lib" accept="image/*" hidden />
+                <svg class="photo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <path d="M21 15l-5-5L5 21" />
+                </svg>
+                <span class="photo-btn-title">From library</span>
+                <span class="photo-btn-sub">Pick an existing photo</span>
+              </label>
+            </div>
+            <div id="s-photo-preview" class="photo-preview hidden">
+              <img id="s-photo-img" alt="Selected photo" />
+              <button id="s-photo-remove" type="button" aria-label="Remove photo">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6"  y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
           <div class="actions form-submit">
-            <div class="primary-wrap"><button id="s-submit" class="btn primary">Submit report</button></div>
+            <div class="primary-wrap"><button id="s-submit" class="btn primary" type="button">
+              <span>Submit report</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </button></div>
           </div>
         </div>
         <div id="s-submitting" class="empty hidden">
