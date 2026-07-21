@@ -20,6 +20,7 @@ COPY wots-vendor ./wots-vendor
 COPY --from=build /app/node_modules ./node_modules
 COPY db.js server.js ./
 COPY public ./public
+COPY views ./views
 
 ENV NODE_ENV=production
 ENV PORT=3000
