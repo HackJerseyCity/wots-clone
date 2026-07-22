@@ -63,12 +63,15 @@ app.setErrorHandler((err, req, reply) => {
 
 for (const [route, template] of [
   ['/', 'index'],
+  ['/new', 'index'],
   ['/stats', 'stats'],
   ['/about', 'about'],
   ['/terms', 'terms'],
 ]) {
   app.get(route, (req, reply) => reply.view(template));
 }
+
+app.get('/report/:id', (req, reply) => reply.view('index'));
 
 app.post('/api/start-login', async (req) => {
   const { phone } = req.body || {};
