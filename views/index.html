@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#fafaf9" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#0c0c0d" media="(prefers-color-scheme: dark)" />
   <title>WOTS++ | An improved WOTS interface</title>
+  <script>window.__DEV__ = <%= it.isDev ? 'true' : 'false' %>;</script>
   <style>
     :root {
       color-scheme: light dark;
@@ -879,6 +880,30 @@
     }
     .photo-preview button:hover { background: rgba(0, 0, 0, 0.85); transform: scale(1.06); }
 
+    .dev-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 18px;
+      padding: 10px 14px;
+      background: var(--surface-2);
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .dev-toggle input { margin: 0; accent-color: var(--accent); }
+    .dev-badge {
+      margin-left: auto;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-subtle);
+    }
+
     .actions.form-submit {
       margin-top: 20px;
     }
@@ -1412,6 +1437,11 @@
             </div>
           </div>
 
+          <label id="s-simulate-row" class="dev-toggle hidden">
+            <input type="checkbox" id="s-simulate" />
+            <span>Simulate — skip the WOTS API call</span>
+            <span class="dev-badge">dev only</span>
+          </label>
           <div class="actions form-submit">
             <div class="primary-wrap"><button id="s-submit" class="btn primary" type="button">
               <span>Submit report</span>
@@ -2497,10 +2527,14 @@
         imageBase64: pendingImage && pendingImage.base64,
       };
 
+      const simulate = window.__DEV__ && $('s-simulate') && $('s-simulate').checked;
+      const submitUrl = simulate ? '/api/simulate/submit' : '/api/submit';
+      if (simulate) console.log('[simulate] POST /api/simulate/submit', payload);
+
       hide('submit-form');
       show('s-submitting');
       try {
-        const r = await api('/api/submit', {
+        const r = await api(submitUrl, {
           method: 'POST',
           token: localStorage.getItem('wots-token'),
           body: payload,
@@ -2540,6 +2574,7 @@
       $('s-photo-img').removeAttribute('src');
     });
     $('s-submit').addEventListener('click', submitReport);
+    if (window.__DEV__) $('s-simulate-row').classList.remove('hidden');
     $('view-table').addEventListener('click', () => setViewMode('table'));
     $('view-grid').addEventListener('click', () => setViewMode('grid'));
     // Reflect persisted mode on the toggle at boot (before any list renders).
