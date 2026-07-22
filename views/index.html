@@ -1679,9 +1679,9 @@
       li.tabIndex = 0;
       li.setAttribute('role', 'button');
       li.setAttribute('aria-label', `View report ${label}`);
-      li.addEventListener('click', () => openDetail(it));
+      li.addEventListener('click', () => goDetail(it));
       li.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(it); }
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goDetail(it); }
       });
     }
 
@@ -2013,10 +2013,17 @@
       hide('detail-error');
       hide('detail-actions');
       $('detail-actions').innerHTML = '';
-      // Paint what we already know from the list, immediately.
-      renderDetail(body, item, /*full=*/false);
-      show('detail-body');
-      hide('detail-loading');
+      // Deep-link entries may only carry an id — in that case skip the stub
+      // render and show the spinner until loadDetail resolves.
+      const hasSummary = item && (item.typeName || item.primaryText || item.address);
+      if (hasSummary) {
+        renderDetail(body, item, /*full=*/false);
+        show('detail-body');
+        hide('detail-loading');
+      } else {
+        hide('detail-body');
+        show('detail-loading');
+      }
       loadDetail(item);
       maybeShowCancelButton(item && item.id);
     }
@@ -2073,6 +2080,8 @@
         const body = $('detail-body');
         body.innerHTML = '';
         renderDetail(body, Object.assign({}, item, cached), /*full=*/true);
+        show('detail-body');
+        hide('detail-loading');
         if (isTerminal(cached)) return;
       }
       try {
@@ -2083,7 +2092,10 @@
         const body = $('detail-body');
         body.innerHTML = '';
         renderDetail(body, merged, /*full=*/true);
+        show('detail-body');
+        hide('detail-loading');
       } catch (err) {
+        hide('detail-loading');
         if (err && (err.error === 'INVALID_JWT' || err.error === 'missing token')) {
           logout();
           return;
@@ -2222,6 +2234,7 @@
 
     function logout() {
       detailsCache.clear();
+      cachedItems = null;
       localStorage.removeItem('wots-token');
       localStorage.removeItem('wots-phone');
       sessionStorage.removeItem('wots-session');
@@ -2229,18 +2242,91 @@
       $('phone').value = '';
       $('code').value = '';
       renderWho(null);
+      if (location.pathname !== '/') history.replaceState({ app: true }, '', '/');
       showStep('step-phone');
       setTimeout(() => $('phone').focus(), 50);
     }
+
+    // ---- Router -------------------------------------------------------------
+    // URL scheme:
+    //   /              home — splash (unauth) or issues list (auth)
+    //   /new           new report form
+    //   /report/:id    detail view for one incident
+    // Login screens (phone / code) are transient modal-like steps that live
+    // under `/` and don't get their own URL.
+
+    function routeFromPath(path) {
+      const m = path.match(/^\/report\/([^/]+)\/?$/);
+      if (m) return { name: 'detail', id: decodeURIComponent(m[1]) };
+      if (path === '/new' || path === '/new/') return { name: 'new' };
+      return { name: 'home' };
+    }
+
+    function navigate(path, opts) {
+      const state = { app: true };
+      if (opts && opts.replace) history.replaceState(state, '', path);
+      else history.pushState(state, '', path);
+      handleRoute(routeFromPath(path));
+    }
+
+    function goBack() {
+      // If we got here via our own pushState we can safely history.back();
+      // otherwise (fresh deep-link entry) synthesize a home nav.
+      if (history.state && history.state.app) history.back();
+      else navigate('/', { replace: true });
+    }
+
+    function goDetail(item, opts) {
+      if (!item || !item.id) return;
+      navigate(`/report/${encodeURIComponent(item.id)}`, opts);
+    }
+    function goSubmit(opts) { navigate('/new', opts); }
+    function goHome(opts)   { navigate('/', opts); }
+
+    function showAuthEntry() {
+      const saved = sessionStorage.getItem('wots-session');
+      if (saved) {
+        try {
+          session = JSON.parse(saved);
+          $('code-phone').textContent = session.phone;
+          showStep('step-code');
+          setTimeout(() => $('code').focus(), 50);
+          return;
+        } catch (_) { /* fall through */ }
+      }
+      showStep('step-splash');
+    }
+
+    function handleRoute(route) {
+      const token = localStorage.getItem('wots-token');
+      if (route.name === 'detail') {
+        if (!token) { showAuthEntry(); return; }
+        const cachedItem = cachedItems && cachedItems.find((i) => i.id === route.id);
+        openDetail(cachedItem || { id: route.id });
+        return;
+      }
+      if (route.name === 'new') {
+        if (!token) { showAuthEntry(); return; }
+        openSubmit();
+        return;
+      }
+      if (token) {
+        if (cachedItems) showStep('step-issues');
+        else loadIssues(token);
+      } else {
+        showAuthEntry();
+      }
+    }
+
+    window.addEventListener('popstate', () => {
+      handleRoute(routeFromPath(location.pathname));
+    });
 
     $('send-code').addEventListener('click', sendCode);
     $('verify').addEventListener('click', verify);
     $('resend').addEventListener('click', resend);
     $('back').addEventListener('click', logout);
-    $('detail-back').addEventListener('click', () => {
-      showStep('step-issues');
-      // list is still rendered from the last loadIssues; no refetch needed
-    });
+    $('detail-back').addEventListener('click', goBack);
 
     // ---- Submit flow --------------------------------------------------------
 
@@ -2426,7 +2512,11 @@
         cachedItems = null;
         detailsCache.delete(r.incidentId);
         resetSubmitForm();
-        openDetail({ id: r.incidentId, typeName: (typesCatalog[type] && typesCatalog[type].typeName) || undefined });
+        // Replace so browser Back skips the empty new-report form.
+        goDetail(
+          { id: r.incidentId, typeName: (typesCatalog[type] && typesCatalog[type].typeName) || undefined },
+          { replace: true }
+        );
       } catch (err) {
         hide('s-submitting');
         show('submit-form');
@@ -2434,19 +2524,12 @@
       }
     }
 
-    $('new-report').addEventListener('click', openSubmit);
+    $('new-report').addEventListener('click', () => goSubmit());
     $('splash-signin').addEventListener('click', () => {
       showStep('step-phone');
       setTimeout(() => $('phone').focus(), 50);
     });
-    $('submit-back').addEventListener('click', () => {
-      if (!cachedItems) {
-        const token = localStorage.getItem('wots-token');
-        if (token) loadIssues(token); else showStep('step-phone');
-      } else {
-        showStep('step-issues');
-      }
-    });
+    $('submit-back').addEventListener('click', goBack);
     $('s-camera').addEventListener('change', (e) => handlePhoto(e.target.files && e.target.files[0]));
     $('s-lib').addEventListener('change', (e) => handlePhoto(e.target.files && e.target.files[0]));
     $('s-photo-remove').addEventListener('click', () => {
@@ -2478,6 +2561,7 @@
     (function boot() {
       purgeLegacyClientCache();
       const token = localStorage.getItem('wots-token');
+      const route = routeFromPath(location.pathname);
       if (token) {
         let phone = localStorage.getItem('wots-phone') || '';
         if (!phone) {
@@ -2485,9 +2569,11 @@
           try { if (saved) phone = JSON.parse(saved).phone || ''; } catch (_) {}
         }
         renderWho(phone);
-        loadIssues(token);
+        handleRoute(route);
         return;
       }
+      // No token: /new and /report/:id aren't reachable — rewrite to /.
+      if (route.name !== 'home') history.replaceState(null, '', '/');
       const saved = sessionStorage.getItem('wots-session');
       if (saved) {
         try {
