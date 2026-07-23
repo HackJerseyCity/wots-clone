@@ -180,6 +180,7 @@
       font: inherit;
       font-weight: 500;
       cursor: pointer;
+      text-decoration: none;
       border-radius: var(--radius-sm);
       padding: 0 20px;
       height: 48px;
@@ -1001,6 +1002,92 @@
       margin-top: 24px;
       padding-top: 20px;
       border-top: 1px solid var(--border);
+    }
+
+    /* Forward-to-council section */
+    .forward-desc {
+      margin: 0 0 12px;
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .forward-dropdown {
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .forward-dropdown > summary {
+      cursor: pointer;
+      padding: 12px 14px;
+      font-size: 14px;
+      color: var(--text);
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      user-select: none;
+    }
+    .forward-dropdown > summary::-webkit-details-marker { display: none; }
+    .forward-dropdown > summary::after {
+      content: "";
+      width: 12px; height: 8px;
+      background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M1 1.5l5 5 5-5'/></svg>") no-repeat center;
+      transition: transform 140ms ease;
+      flex-shrink: 0;
+    }
+    .forward-dropdown[open] > summary::after { transform: rotate(180deg); }
+    .forward-dropdown > summary:hover { background: var(--surface-2); }
+    @media (prefers-color-scheme: dark) {
+      .forward-dropdown > summary::after {
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%23a1a1aa' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M1 1.5l5 5 5-5'/></svg>");
+      }
+    }
+    .forward-list {
+      max-height: 320px;
+      overflow-y: auto;
+      border-top: 1px solid var(--border);
+    }
+    .forward-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .forward-item:last-child { border-bottom: 0; }
+    .forward-item:hover { background: var(--surface-2); }
+    .forward-item input[type="checkbox"] {
+      margin: 3px 0 0;
+      accent-color: var(--accent);
+      flex-shrink: 0;
+    }
+    .forward-item .forward-role {
+      display: block;
+      color: var(--text-muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+      margin-top: 2px;
+    }
+    .forward-submit {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .forward-submit .btn.primary { width: auto; min-width: 160px; }
+    .forward-submit .btn.primary[aria-disabled="true"] {
+      opacity: 0.55;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .forward-count {
+      color: var(--text-muted);
+      font-size: 13px;
     }
 
     .hidden { display: none !important; }
@@ -2229,6 +2316,147 @@
           root.appendChild(sec);
         }
       }
+
+      appendForwardSection(root, it);
+    }
+
+    // Jersey City elected officials + public safety director. Contact info
+    // will drift; refresh from jerseycitynj.gov when it does.
+    const COUNCIL_CONTACTS = [
+      { name: 'Mayor Solomon',           role: 'Mayor',                          email: 'JSolomon@jcnj.org' },
+      { name: 'Denise Ridley',           role: 'Council President, Ward A',      email: 'DRidley@jcnj.org' },
+      { name: 'Joel A. Brooks',          role: 'Ward B',                         email: 'jbrooks@jcnj.org' },
+      { name: 'Thomas Zuppa Jr.',        role: 'Ward C',                         email: 'TZuppa@jcnj.org' },
+      { name: 'Jake Ephros',             role: 'Ward D',                         email: 'JEphros@jcnj.org' },
+      { name: 'Eleana Little',           role: 'Ward E',                         email: 'ELittle@jcnj.org' },
+      { name: 'Frank E. Gilmore',        role: 'Ward F',                         email: 'FEGilmore@jcnj.org' },
+      { name: 'Mamta Singh',             role: 'Council At-Large',               email: 'MSingh@jcnj.org' },
+      { name: 'Michael O. Griffin',      role: 'Council At-Large',               email: 'MGriffin@jcnj.org' },
+      { name: 'Rolando R. Lavarro Jr.',  role: 'City Council At-Large',          email: 'RLavarro@jcnj.org' },
+      { name: 'Anthony Ambrose',         role: 'Public Safety Director',         email: 'aambrose@njjcps.org' },
+    ];
+
+    function buildForwardEmail(incident) {
+      const subjectBits = ['Jersey City report', incident.typeName];
+      if (incident.address) subjectBits.push(`at ${incident.address}`);
+      const subject = subjectBits.filter(Boolean).join(' — ');
+
+      const lines = [];
+      lines.push('Hello,');
+      lines.push('');
+      lines.push('I filed the following report through WOTS (What’s on the Street) and wanted to bring it to your attention.');
+      lines.push('');
+      if (incident.typeName)    lines.push(`Type: ${incident.typeName}`);
+      if (incident.address)     lines.push(`Address: ${incident.address}`);
+      if (incident.primaryText) lines.push(`Status: ${incident.primaryText}`);
+      const reported = fmtDay(incident.receivedAt || incident.createdAt || incident.reportedAt);
+      if (reported) lines.push(`Reported: ${reported}`);
+      const resolution = (typeof incident.publicResolution === 'string' && incident.publicResolution.trim())
+        || (typeof incident.resolution === 'string' && incident.resolution.trim())
+        || '';
+      if (resolution) {
+        lines.push('');
+        lines.push(`Resolution: ${resolution}`);
+      }
+      // Only include real photo URLs — data: URIs (sim mode) would balloon
+      // the mailto link past every browser's length limit.
+      const imageUrls = (incident.userContent && Array.isArray(incident.userContent.imageUrls))
+        ? incident.userContent.imageUrls.filter((u) => typeof u === 'string' && !u.startsWith('data:'))
+        : [];
+      if (imageUrls.length) {
+        lines.push('');
+        lines.push(imageUrls.length === 1 ? 'Photo:' : 'Photos:');
+        for (const u of imageUrls) lines.push(u);
+      }
+      lines.push('');
+      lines.push('Thank you for your attention.');
+      return { subject, body: lines.join('\n') };
+    }
+
+    function appendForwardSection(root, incident) {
+      if (!incident) return;
+      const sec = section('Forward to city officials');
+
+      const desc = document.createElement('p');
+      desc.className = 'forward-desc';
+      desc.textContent = 'Pick one or more recipients. This opens your email app with the report details filled in — nothing is sent from your browser.';
+      sec.appendChild(desc);
+
+      const details = document.createElement('details');
+      details.className = 'forward-dropdown';
+      const summary = document.createElement('summary');
+      const summaryLabel = document.createElement('span');
+      summaryLabel.textContent = 'Choose recipients';
+      summary.appendChild(summaryLabel);
+      details.appendChild(summary);
+
+      const list = document.createElement('div');
+      list.className = 'forward-list';
+      const selected = new Set();
+
+      // A real <a href="mailto:…"> is more reliable than assigning
+      // window.location.href in a click handler — Safari and some Chrome
+      // builds silently drop the latter for external-protocol URLs.
+      const btn = document.createElement('a');
+      btn.className = 'btn primary';
+      btn.setAttribute('role', 'button');
+      btn.setAttribute('aria-disabled', 'true');
+      btn.href = '#';
+      btn.textContent = 'Compose email';
+
+      function refresh() {
+        const n = selected.size;
+        summaryLabel.textContent = n
+          ? `${n} recipient${n === 1 ? '' : 's'} selected`
+          : 'Choose recipients';
+        if (!n) {
+          btn.setAttribute('aria-disabled', 'true');
+          btn.href = '#';
+          return;
+        }
+        const { subject, body } = buildForwardEmail(incident);
+        btn.href = `mailto:${[...selected].join(',')}`
+          + `?subject=${encodeURIComponent(subject)}`
+          + `&body=${encodeURIComponent(body)}`;
+        btn.removeAttribute('aria-disabled');
+      }
+
+      for (const c of COUNCIL_CONTACTS) {
+        const label = document.createElement('label');
+        label.className = 'forward-item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = c.email;
+        cb.addEventListener('change', () => {
+          if (cb.checked) selected.add(c.email);
+          else selected.delete(c.email);
+          refresh();
+        });
+        const text = document.createElement('span');
+        const nameEl = document.createElement('b');
+        nameEl.textContent = c.name;
+        const roleEl = document.createElement('span');
+        roleEl.className = 'forward-role';
+        roleEl.textContent = `${c.role} · ${c.email}`;
+        text.appendChild(nameEl);
+        text.appendChild(roleEl);
+        label.appendChild(cb);
+        label.appendChild(text);
+        list.appendChild(label);
+      }
+      details.appendChild(list);
+      sec.appendChild(details);
+
+      btn.addEventListener('click', (e) => {
+        if (!selected.size) e.preventDefault();
+      });
+
+      const submitRow = document.createElement('div');
+      submitRow.className = 'forward-submit';
+      submitRow.appendChild(btn);
+      sec.appendChild(submitRow);
+
+      root.appendChild(sec);
     }
 
     function section(title) {
