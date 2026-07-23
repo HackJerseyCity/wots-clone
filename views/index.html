@@ -1011,6 +1011,36 @@
       font-size: 14px;
       line-height: 1.5;
     }
+    .forward-primary {
+      margin: 0 0 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .forward-primary-note {
+      margin: 0;
+      font-size: 13px;
+    }
+    /* Compact button treatment for this section — the mailto CTAs don't need
+       the full 48px form-input weight. */
+    .forward-primary .btn.primary,
+    .forward-row .btn.primary {
+      width: auto;
+      min-width: 0;
+      height: 36px;
+      padding: 0 14px;
+      font-size: 13px;
+    }
+    .forward-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+    .forward-row > .forward-dropdown { flex: 1; min-width: 0; }
+    .forward-row > .btn.primary { flex-shrink: 0; }
     .forward-dropdown {
       border: 1px solid var(--border-strong);
       border-radius: var(--radius-sm);
@@ -1072,15 +1102,7 @@
       overflow-wrap: anywhere;
       margin-top: 2px;
     }
-    .forward-submit {
-      margin-top: 12px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .forward-submit .btn.primary { width: auto; min-width: 160px; }
-    .forward-submit .btn.primary[aria-disabled="true"] {
+    .forward-row .btn.primary[aria-disabled="true"] {
       opacity: 0.55;
       cursor: not-allowed;
       pointer-events: none;
@@ -2321,20 +2343,73 @@
     }
 
     // Jersey City elected officials + public safety director. Contact info
-    // will drift; refresh from jerseycitynj.gov when it does.
+    // will drift; refresh from jerseycitynj.gov when it does. `ward` letter
+    // lets us auto-highlight a ward councilperson via the polygon lookup.
     const COUNCIL_CONTACTS = [
       { name: 'Mayor Solomon',           role: 'Mayor',                          email: 'JSolomon@jcnj.org' },
-      { name: 'Denise Ridley',           role: 'Council President, Ward A',      email: 'DRidley@jcnj.org' },
-      { name: 'Joel A. Brooks',          role: 'Ward B',                         email: 'jbrooks@jcnj.org' },
-      { name: 'Thomas Zuppa Jr.',        role: 'Ward C',                         email: 'TZuppa@jcnj.org' },
-      { name: 'Jake Ephros',             role: 'Ward D',                         email: 'JEphros@jcnj.org' },
-      { name: 'Eleana Little',           role: 'Ward E',                         email: 'ELittle@jcnj.org' },
-      { name: 'Frank E. Gilmore',        role: 'Ward F',                         email: 'FEGilmore@jcnj.org' },
+      { name: 'Denise Ridley',           role: 'Ward A, Council President',      email: 'DRidley@jcnj.org',   ward: 'A' },
+      { name: 'Joel A. Brooks',          role: 'Ward B',                         email: 'jbrooks@jcnj.org',   ward: 'B' },
+      { name: 'Thomas Zuppa Jr.',        role: 'Ward C',                         email: 'TZuppa@jcnj.org',    ward: 'C' },
+      { name: 'Jake Ephros',             role: 'Ward D',                         email: 'JEphros@jcnj.org',   ward: 'D' },
+      { name: 'Eleana Little',           role: 'Ward E',                         email: 'ELittle@jcnj.org',   ward: 'E' },
+      { name: 'Frank E. Gilmore',        role: 'Ward F',                         email: 'FEGilmore@jcnj.org', ward: 'F' },
       { name: 'Mamta Singh',             role: 'Council At-Large',               email: 'MSingh@jcnj.org' },
       { name: 'Michael O. Griffin',      role: 'Council At-Large',               email: 'MGriffin@jcnj.org' },
-      { name: 'Rolando R. Lavarro Jr.',  role: 'City Council At-Large',          email: 'RLavarro@jcnj.org' },
+      { name: 'Rolando R. Lavarro Jr.',  role: 'Council At-Large',               email: 'RLavarro@jcnj.org' },
       { name: 'Anthony Ambrose',         role: 'Public Safety Director',         email: 'aambrose@njjcps.org' },
     ];
+
+    // Ward polygon lookup. Lazy-loads /data/wards.geojson (a trimmed copy of
+    // Jersey City's open-data ward map) on first use, then does a plain
+    // ray-casting point-in-polygon test. Returns the ward letter (e.g. 'D')
+    // or null if the point isn't inside any polygon or the fetch failed.
+    let wardsPromise = null;
+    function loadWards() {
+      if (!wardsPromise) {
+        wardsPromise = fetch('/data/wards.geojson')
+          .then((r) => r.ok ? r.json() : null)
+          .catch(() => null);
+      }
+      return wardsPromise;
+    }
+    function pointInRing(lon, lat, ring) {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i][0], yi = ring[i][1];
+        const xj = ring[j][0], yj = ring[j][1];
+        const intersect = ((yi > lat) !== (yj > lat))
+          && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    }
+    function pointInFeature(lon, lat, feature) {
+      const g = feature.geometry;
+      if (!g) return false;
+      // Ward polygons in the JC dataset are single-ring Polygons; guard for
+      // the MultiPolygon case anyway in case the source ever changes.
+      const polys = g.type === 'Polygon' ? [g.coordinates]
+        : g.type === 'MultiPolygon' ? g.coordinates : [];
+      for (const poly of polys) {
+        if (!poly.length) continue;
+        if (!pointInRing(lon, lat, poly[0])) continue;
+        let inHole = false;
+        for (let k = 1; k < poly.length; k++) {
+          if (pointInRing(lon, lat, poly[k])) { inHole = true; break; }
+        }
+        if (!inHole) return true;
+      }
+      return false;
+    }
+    async function wardForPoint(lat, lon) {
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+      const fc = await loadWards();
+      if (!fc || !Array.isArray(fc.features)) return null;
+      for (const f of fc.features) {
+        if (pointInFeature(lon, lat, f)) return f.properties && f.properties.ward;
+      }
+      return null;
+    }
 
     function buildForwardEmail(incident) {
       const subjectBits = ['Jersey City report', incident.typeName];
@@ -2373,52 +2448,62 @@
       return { subject, body: lines.join('\n') };
     }
 
+    function mailtoFor(emails, incident) {
+      const { subject, body } = buildForwardEmail(incident);
+      return `mailto:${emails.join(',')}`
+        + `?subject=${encodeURIComponent(subject)}`
+        + `&body=${encodeURIComponent(body)}`;
+    }
+
     function appendForwardSection(root, incident) {
       if (!incident) return;
       const sec = section('Forward to city officials');
 
-      const desc = document.createElement('p');
-      desc.className = 'forward-desc';
-      desc.textContent = 'Pick one or more recipients. This opens your email app with the report details filled in — nothing is sent from your browser.';
-      sec.appendChild(desc);
+      // Primary CTA: filled in once we've resolved the incident's ward.
+      // Starts hidden so we don't flash "Email your councilperson" and then
+      // hide it if lookup fails or the incident has no lat/lon.
+      const primaryWrap = document.createElement('div');
+      primaryWrap.className = 'forward-primary hidden';
+      const primaryBtn = document.createElement('a');
+      primaryBtn.className = 'btn primary';
+      primaryBtn.setAttribute('role', 'button');
+      const primaryNote = document.createElement('p');
+      primaryNote.className = 'forward-desc forward-primary-note';
+      primaryWrap.appendChild(primaryBtn);
+      primaryWrap.appendChild(primaryNote);
+      sec.appendChild(primaryWrap);
 
+      // Secondary picker — collapsed by default when we have a primary CTA,
+      // open when we don't so users still have an obvious next step.
       const details = document.createElement('details');
       details.className = 'forward-dropdown';
       const summary = document.createElement('summary');
       const summaryLabel = document.createElement('span');
-      summaryLabel.textContent = 'Choose recipients';
+      summaryLabel.textContent = 'Or choose which officials to send to';
       summary.appendChild(summaryLabel);
       details.appendChild(summary);
 
       const list = document.createElement('div');
       list.className = 'forward-list';
       const selected = new Set();
+      const checkboxes = new Map();
 
-      // A real <a href="mailto:…"> is more reliable than assigning
-      // window.location.href in a click handler — Safari and some Chrome
-      // builds silently drop the latter for external-protocol URLs.
-      const btn = document.createElement('a');
-      btn.className = 'btn primary';
-      btn.setAttribute('role', 'button');
-      btn.setAttribute('aria-disabled', 'true');
-      btn.href = '#';
-      btn.textContent = 'Compose email';
+      const composeBtn = document.createElement('a');
+      composeBtn.className = 'btn primary';
+      composeBtn.setAttribute('role', 'button');
+      composeBtn.setAttribute('aria-disabled', 'true');
+      composeBtn.href = '#';
+      composeBtn.textContent = 'Compose email';
 
       function refresh() {
         const n = selected.size;
-        summaryLabel.textContent = n
-          ? `${n} recipient${n === 1 ? '' : 's'} selected`
-          : 'Choose recipients';
         if (!n) {
-          btn.setAttribute('aria-disabled', 'true');
-          btn.href = '#';
+          composeBtn.setAttribute('aria-disabled', 'true');
+          composeBtn.href = '#';
           return;
         }
-        const { subject, body } = buildForwardEmail(incident);
-        btn.href = `mailto:${[...selected].join(',')}`
-          + `?subject=${encodeURIComponent(subject)}`
-          + `&body=${encodeURIComponent(body)}`;
-        btn.removeAttribute('aria-disabled');
+        composeBtn.href = mailtoFor([...selected], incident);
+        composeBtn.removeAttribute('aria-disabled');
       }
 
       for (const c of COUNCIL_CONTACTS) {
@@ -2432,6 +2517,7 @@
           else selected.delete(c.email);
           refresh();
         });
+        checkboxes.set(c.email, cb);
         const text = document.createElement('span');
         const nameEl = document.createElement('b');
         nameEl.textContent = c.name;
@@ -2445,18 +2531,41 @@
         list.appendChild(label);
       }
       details.appendChild(list);
-      sec.appendChild(details);
 
-      btn.addEventListener('click', (e) => {
+      composeBtn.addEventListener('click', (e) => {
         if (!selected.size) e.preventDefault();
       });
 
-      const submitRow = document.createElement('div');
-      submitRow.className = 'forward-submit';
-      submitRow.appendChild(btn);
-      sec.appendChild(submitRow);
+      const row = document.createElement('div');
+      row.className = 'forward-row';
+      row.appendChild(details);
+      row.appendChild(composeBtn);
+      sec.appendChild(row);
 
       root.appendChild(sec);
+
+      // Kick off the ward lookup. If it resolves to a known ward, promote
+      // that councilperson to the primary CTA and pre-check them in the
+      // dropdown. If not, leave the dropdown open as the primary affordance.
+      const lat = Number(incident.lat);
+      const lon = Number(incident.lon);
+      wardForPoint(lat, lon).then((ward) => {
+        const contact = ward && COUNCIL_CONTACTS.find((c) => c.ward === ward);
+        if (!contact) {
+          details.open = true;
+          return;
+        }
+        primaryBtn.href = mailtoFor([contact.email], incident);
+        primaryBtn.textContent = `Email ${contact.name}`;
+        primaryNote.textContent = `Your Ward ${ward} councilperson — opens your email app with the report details filled in.`;
+        primaryWrap.classList.remove('hidden');
+        const cb = checkboxes.get(contact.email);
+        if (cb) {
+          cb.checked = true;
+          selected.add(contact.email);
+          refresh();
+        }
+      });
     }
 
     function section(title) {

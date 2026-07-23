@@ -99,6 +99,14 @@ app.register(fastifyStatic, {
   immutable: true,
 });
 
+app.register(fastifyStatic, {
+  root: path.join(__dirname, 'public', 'data'),
+  prefix: '/data/',
+  cacheControl: true,
+  maxAge: 86400000,
+  decorateReply: false,
+});
+
 app.setErrorHandler((err, req, reply) => {
   const status = err.statusCode
     || (CLIENT_ERRORS.has(err.code) ? 400 : 500);
