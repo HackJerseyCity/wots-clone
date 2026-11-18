@@ -1,0 +1,56 @@
+@import 'tailwindcss';
+
+/* Design tokens ported from the legacy inline styles in views/*.html.
+   `@theme` is a compile-time directive — it can't be nested inside a media
+   query. So the light palette lives here (baseline that generates
+   `bg-surface`, `text-muted`, etc.) and the dark palette below overrides
+   the same CSS variables at runtime via prefers-color-scheme. Utilities
+   like `bg-bg` resolve against `var(--color-bg)` at paint time, so the
+   runtime override just works. */
+@theme {
+  --color-bg: #fafaf9;
+  --color-surface: #ffffff;
+  --color-surface-2: #f5f5f4;
+  --color-border: rgba(20, 20, 20, 0.08);
+  --color-border-strong: rgba(20, 20, 20, 0.14);
+  --color-text: #18181b;
+  --color-muted: #6b7280;
+  --color-subtle: #9ca3af;
+  --color-accent: #1d4ed8;
+  --color-accent-hover: #1e40af;
+  --color-warn-bg: rgba(217, 119, 6, 0.10);
+  --color-warn-fg: #b45309;
+  --color-brand: #dc2626;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0c0c0d;
+    --color-surface: #17171a;
+    --color-surface-2: #1f1f23;
+    --color-border: rgba(255, 255, 255, 0.08);
+    --color-border-strong: rgba(255, 255, 255, 0.16);
+    --color-text: #f4f4f5;
+    --color-muted: #a1a1aa;
+    --color-subtle: #71717a;
+    --color-accent: #60a5fa;
+    --color-accent-hover: #93c5fd;
+    --color-warn-bg: rgba(251, 191, 36, 0.10);
+    --color-warn-fg: #fbbf24;
+  }
+}
+
+html {
+  color-scheme: light dark;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

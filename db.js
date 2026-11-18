@@ -188,7 +188,7 @@ function stats() {
   const allDurations = [];
 
   const bumpMonth = (m, key) => {
-    if (!m.has(key)) m.set(key, { month: key, reported: 0, resolved: 0, canceled: 0 });
+    if (!m.has(key)) m.set(key, { month: key, reported: 0, resolved: 0, canceled: 0, durations: [] });
     return m.get(key);
   };
 
@@ -235,7 +235,11 @@ function stats() {
     }
 
     if (r.received_at) bumpMonth(byMonth, monthKey(r.received_at)).reported++;
-    if (isResolved && r.resolved_at) bumpMonth(byMonth, monthKey(r.resolved_at)).resolved++;
+    if (isResolved && r.resolved_at) {
+      const bucket = bumpMonth(byMonth, monthKey(r.resolved_at));
+      bucket.resolved++;
+      if (dur !== null && dur > 0) bucket.durations.push(dur);
+    }
     if (isCanceled && r.canceled_at) bumpMonth(byMonth, monthKey(r.canceled_at)).canceled++;
 
     if (dur !== null && dur > 0) {
@@ -289,7 +293,15 @@ function stats() {
         resolutionTime: durationStats(o.durations),
       }))
       .sort((a, b) => b.count - a.count),
-    byMonth: [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month)),
+    byMonth: [...byMonth.values()]
+      .map((m) => ({
+        month: m.month,
+        reported: m.reported,
+        resolved: m.resolved,
+        canceled: m.canceled,
+        resolutionTime: durationStats(m.durations),
+      }))
+      .sort((a, b) => a.month.localeCompare(b.month)),
   };
 }
 

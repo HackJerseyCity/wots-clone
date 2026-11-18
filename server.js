@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('node:path');
+const fs = require('node:fs');
 const Fastify = require('fastify');
 const fastifyView = require('@fastify/view');
 const fastifyStatic = require('@fastify/static');
@@ -107,6 +108,25 @@ app.register(fastifyStatic, {
   decorateReply: false,
 });
 
+// SPA build output from Vite (`npm run build`). /assets/* holds hashed JS/CSS
+// bundles; the built index.html is served for each ported SPA route below.
+// In dev the Vite dev server (npm run dev:client) serves these directly with
+// HMR and proxies /api etc. back to Fastify, so this block is inert without
+// a prior `npm run build`.
+const DIST_DIR = path.join(__dirname, 'dist');
+const DIST_INDEX = path.join(DIST_DIR, 'index.html');
+const HAS_DIST = fs.existsSync(DIST_INDEX);
+if (HAS_DIST) {
+  app.register(fastifyStatic, {
+    root: path.join(DIST_DIR, 'assets'),
+    prefix: '/assets/',
+    cacheControl: true,
+    maxAge: 31536000000,
+    immutable: true,
+    decorateReply: false,
+  });
+}
+
 app.setErrorHandler((err, req, reply) => {
   const status = err.statusCode
     || (CLIENT_ERRORS.has(err.code) ? 400 : 500);
@@ -116,17 +136,24 @@ app.setErrorHandler((err, req, reply) => {
   });
 });
 
+// Legacy Eta routes — pages not yet ported to the React SPA.
 for (const [route, template] of [
   ['/', 'index'],
   ['/new', 'index'],
-  ['/stats', 'stats'],
-  ['/about', 'about'],
-  ['/terms', 'terms'],
 ]) {
   app.get(route, (req, reply) => reply.view(template, { isDev: IS_DEV }));
 }
-
 app.get('/report/:id', (req, reply) => reply.view('index', { isDev: IS_DEV }));
+
+// SPA routes — served the built React app. If the dist bundle is missing
+// (dev before first build), fall back to a hint so nothing 404s silently.
+const SPA_ROUTES = ['/stats', '/about', '/terms'];
+const spaHandler = HAS_DIST
+  ? (_req, reply) => reply.type('text/html').send(fs.readFileSync(DIST_INDEX))
+  : (_req, reply) => reply.type('text/plain').status(503).send(
+      'SPA bundle missing. Run `npm run build` (or `npm run dev:client` for HMR at :5173).'
+    );
+for (const route of SPA_ROUTES) app.get(route, spaHandler);
 
 app.post('/api/start-login', async (req) => {
   const { phone } = req.body || {};
