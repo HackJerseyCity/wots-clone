@@ -248,10 +248,10 @@
 
     .notice {
       margin-top: 14px;
-      padding: 10px 14px;
+      padding: 12px 14px;
       border-radius: var(--radius-sm);
       font-size: 14px;
-      line-height: 1.4;
+      line-height: 1.5;
     }
     .notice.error {
       background: var(--danger-bg);
@@ -261,6 +261,21 @@
       background: var(--surface-2);
       color: var(--text-muted);
     }
+    .notice-action {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 6px 12px;
+      font: inherit;
+      font-weight: 500;
+      color: inherit;
+      background: transparent;
+      border: 1px solid currentColor;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      opacity: 0.85;
+    }
+    .notice-action:hover { opacity: 1; }
+    .notice-action:focus-visible { outline: none; box-shadow: var(--focus); }
 
     /* Issues list */
     .list-head {
@@ -1603,12 +1618,21 @@
       }
     }
 
-    function setNotice(elId, msg, kind) {
+    function setNotice(elId, msg, kind, action) {
       const el = $(elId);
       el.classList.remove('error', 'info');
       if (!msg) { hide(elId); el.textContent = ''; return; }
       el.classList.add(kind === 'info' ? 'info' : 'error');
       el.textContent = msg;
+      if (action && action.label && typeof action.onClick === 'function') {
+        el.appendChild(document.createTextNode(' '));
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'notice-action';
+        btn.textContent = action.label;
+        btn.addEventListener('click', action.onClick);
+        el.appendChild(btn);
+      }
       show(elId);
     }
 
@@ -1628,6 +1652,7 @@
         case 'PHOTO_UPLOAD_FAILED': return 'The photo failed to upload. Try again.';
         case 'CANCEL_FAILED': return 'Cancel failed — the window may have closed.';
         case 'INVALID_CANCEL_INFO': return 'Cancel info is missing or malformed.';
+        case 'LIST_FAILED': return 'We couldn’t load your reports. This usually clears up after logging out and back in.';
         default: return (err && err.message) || 'Something went wrong.';
       }
     }
@@ -1771,7 +1796,10 @@
           logout();
           return;
         }
-        setNotice('issues-error', friendlyError(err));
+        const action = err && err.error === 'LIST_FAILED'
+          ? { label: 'Log out and sign in again', onClick: logout }
+          : null;
+        setNotice('issues-error', friendlyError(err), undefined, action);
       }
     }
 
@@ -2420,7 +2448,7 @@
       const lines = [];
       lines.push('Hello,');
       lines.push('');
-      lines.push('I filed the following report through WOTS (What’s on the Street) and wanted to bring it to your attention.');
+      lines.push('I filed the following report through Word on the Street and wanted to bring it to your attention.');
       lines.push('');
       if (incident.typeName)    lines.push(`Type: ${incident.typeName}`);
       if (incident.address)     lines.push(`Address: ${incident.address}`);
@@ -2443,6 +2471,10 @@
         lines.push('');
         lines.push(imageUrls.length === 1 ? 'Photo:' : 'Photos:');
         for (const u of imageUrls) lines.push(u);
+      }
+      if (incident.id) {
+        lines.push('');
+        lines.push(`Report: ${location.origin}/report/${encodeURIComponent(incident.id)}`);
       }
       lines.push('');
       lines.push('Thank you for your attention.');
