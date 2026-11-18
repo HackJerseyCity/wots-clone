@@ -287,16 +287,31 @@ function OfficerTable({ rows }: { rows: Stats['byOfficer'] }) {
 }
 
 function MonthlyResolutionChart({ rows }: { rows: Stats['byMonth'] }) {
-  const points = rows
+  const raw = rows
     .map((m) => ({
       month: m.month,
       median: m.resolutionTime?.medianSecs ?? 0,
       mean: m.resolutionTime?.meanSecs ?? 0,
       count: m.resolutionTime?.count ?? 0,
     }))
-    .filter((p) => p.count > 0)
-    .slice()
-    .reverse();
+    .filter((p) => p.count > 0);
+
+  // The oldest month absorbs legacy reports that sat open for years before being
+  // resolved, so its median can dwarf every other bar. Drop it if it is >5x the
+  // median of the remaining months.
+  let dropped: typeof raw[number] | null = null;
+  let kept = raw;
+  if (raw.length >= 3) {
+    const [oldest, ...rest] = raw;
+    const sortedMedians = rest.map((p) => p.median).sort((a, b) => a - b);
+    const typical = sortedMedians[Math.floor(sortedMedians.length / 2)] || 0;
+    if (typical > 0 && oldest.median > typical * 5) {
+      dropped = oldest;
+      kept = rest;
+    }
+  }
+
+  const points = kept.slice().reverse();
   if (points.length === 0) return null;
   const max = Math.max(1, ...points.map((p) => p.median));
   const fmtLabel = (key: string) => {
@@ -332,6 +347,12 @@ function MonthlyResolutionChart({ rows }: { rows: Stats['byMonth'] }) {
           ))}
         </div>
       </div>
+      {dropped && (
+        <div className="text-subtle text-xs mt-2">
+          {fmtLabel(dropped.month)} omitted as outlier (median {fmtDuration(dropped.median)} across{' '}
+          {nfmt.format(dropped.count)} reports — likely legacy reports resolved after long delays).
+        </div>
+      )}
     </>
   );
 }
